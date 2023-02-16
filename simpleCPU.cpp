@@ -1,30 +1,4 @@
-#include <stdint.h>
-#include <iostream>
-#include <cstdio>
-#include <cstdlib>
-//import chrono time libs
-
-#include <chrono>
-#include <thread>
-#include <time.h>
-
-#define BE_LE_U16(u16) (u16 & 0xff00) >> 8 | (u16 & 0x00ff) << 8
-#define E NULL
-#define PAL_CPU_CLOCK_DIVIDER 16
-#define NTSC_CPU_CLOCK_DIVIDER 12
-#define NOP (void)0
-
-
-#define N_FLAG 0b10000000
-#define V_FLAG 0b01000000
-#define __FLAG 0b00100000
-#define B_FLAG 0b00010000
-#define D_FLAG 0b00001000
-#define I_FLAG 0b00000100
-#define Z_FLAG 0b00000010
-#define C_FLAG 0b00000001
-
-#define SR_RST 0b00110100 // IGNORED(_), B and INTERRUPT are set to 1
+#include "simpleCPU.hpp"
 
 //typedef struct registers_{
     uint16_t pc;
@@ -49,7 +23,7 @@ bool jammed = false; // is the cpu jammed because of certain instructions?
 uint8_t prog[] = {0xA2, 0xFA, 0xCA, 0xC8, 0xE0, 0x41, 0xD0, 0xFA, 0x00};
 
 //uint8_t prog[] = {0x0C, 0xFF, 0xFF,0x0C, 0xFF, 0xFF,0x0C, 0xFF, 0xFF,0x00};
-uint8_t *ram = (uint8_t *) malloc((2 << 16) * sizeof(uint8_t));
+extern uint8_t *ram = (uint8_t *) malloc((2 << 16) * sizeof(uint8_t));
 
 //registers_t reg = (registers_t) calloc(1,sizeof(registers_));
 
