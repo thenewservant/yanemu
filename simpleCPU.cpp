@@ -1,9 +1,7 @@
 #include "simpleCPU.hpp"
 
-
  uint16_t pc;
  uint8_t ac, xr, yr, sr = SR_RST, sp;
-
 
 bool jammed = false; // is the cpu jammed because of certain instructions?
 
@@ -127,7 +125,7 @@ void _31andN(){
     pc+=2;
 }
 
-void _D0bneR()({
+void _D0bneR(){
     pc += (!((sr & Z_FLAG) >> 1)) * (((prog[pc] >> 7) == 1) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc]);          //prog[pc]
     pc++;
     }
