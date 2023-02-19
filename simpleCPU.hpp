@@ -26,3 +26,5 @@
 #define C_FLAG 0b00000001
 
 #define SR_RST 0b00110100 // IGNORED(_), B and INTERRUPT are set to 1
+
+void insertAt(uint8_t* mem, uint64_t at, uint16_t* prog2);

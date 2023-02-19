@@ -1,8 +1,9 @@
 #include "simpleCPU.hpp"
 
  uint16_t pc;
- uint8_t ac, xr, yr, sr = SR_RST, sp;
-
+ uint8_t ac, xr, yr, sr = SR_RST, sp = 0xFF;
+#define S 0x00
+#define STACK_END 0x100
 bool jammed = false; // is the cpu jammed because of certain instructions?
 
 //uint8_t prog[] = {0xA2, 0x05, 0xB4, 0x10, 0x00};
@@ -15,13 +16,21 @@ bool jammed = false; // is the cpu jammed because of certain instructions?
                     0xA4, 0x58,
                     0x02};*/
 
-//uint8_t prog[] = {0xA9, 0xFF, 0xC9, 0x01};
+//
 
 //test branch
-uint8_t prog[] = {0xA2, 0xFA, 0xCA, 0xC8, 0xE0, 0x41, 0xD0, 0xFA, 0x00};
-
+//uint8_t prog[] = {0xA2, 0xFA, 0xCA, 0xC8, 0xE0, 0x41, 0xD0, 0xFA, 0x00};
+//uint8_t prog[] = { 0x69, 0x10, 0x69, 0x10, 0x20, 0x07, 0x00, 0x69, 0x10, 0x60, 0x00 };
 //uint8_t prog[] = {0x0C, 0xFF, 0xFF,0x0C, 0xFF, 0xFF,0x0C, 0xFF, 0xFF,0x00};
-extern uint8_t *ram = (uint8_t *) malloc((2 << 16) * sizeof(uint8_t));
+//uint8_t prog[] = { 0x6C, 0x08, 0x00, 0x00, 0x00, 0x69, 0x10, 0x00, 0x05, 0x00 };
+//uint8_t prog[] = {  0xA2,0x10 , 0x8E ,0x00,0x02 };
+extern uint8_t *ram = (uint8_t *) malloc((1 << 16) * sizeof(uint8_t));
+
+uint8_t* prog = ram;
+
+uint16_t prog2[] = { 0x69, 0xFF, 0x30, 0x04, 0x00, 0x00, 0x00, 0x00, 0x69, 0x10, 0xDEAD};
+
+
 
 //registers_t reg = (registers_t) calloc(1,sizeof(registers_));
 
@@ -38,37 +47,32 @@ using namespace std;
 */
 
 void check_NZ(){
-    sr = (sr & ~N_FLAG) | (ac | xr | yr | N_FLAG) & N_FLAG;
+    sr = (sr & ~N_FLAG) | (ac | xr | yr ) & N_FLAG;
     sr = (sr & ~Z_FLAG) | (ac & xr & yr & Z_FLAG) ;
 }
 
 uint16_t addTmp = 0; // used to store the result of an addition
 
 void _69adcI(){
-    check_NZ();
     addTmp = ac + prog[pc] + (sr & C_FLAG);
     ac = addTmp;
     sr = (addTmp) > 0xff ? (sr | C_FLAG) : sr & ~C_FLAG;
     pc++;
-}
-
-void _00adcI(){
     check_NZ();
-    _69adcI();
 }
 
 void _65adcZ(){
-    check_NZ();
     ac += ram[prog[pc]] + (sr & C_FLAG);
     sr = (ac + ram[prog[pc]] + (sr & C_FLAG)) > 0xff ? sr | C_FLAG : sr & ~C_FLAG;
     pc++;
+    check_NZ();
 }
 
 void _75adcZ(){
-    check_NZ();
     ac += ram[prog[pc] + xr] + (sr & C_FLAG);
     sr = (ac + ram[prog[pc] + xr] + (sr & C_FLAG)) > 0xff ? sr | C_FLAG : sr & ~C_FLAG;
     pc++;
+    check_NZ();
 }
 
 void _00brk_(){
@@ -84,51 +88,54 @@ void _29andI(){
 }
 
 void _25andZ(){
-    check_NZ();
     ac &= ram[prog[pc]];
     pc++;
 }
 
 void _35andZ(){
-    check_NZ();
     ac &= ram[prog[pc] + xr];
     pc++;
 }
 
 void _2DandA(){
-    check_NZ();
     ac &= ram[(prog[pc+1] << 8) | prog[pc]];
     pc+=2;
 }
 
 void _3DandA(){
-    check_NZ();
     ac &= ram[((prog[pc+1] << 8) | prog[pc]) + xr ];
     pc+=2;
 }
 
 void _39andA(){
-    check_NZ();
     ac &= ram[((prog[pc+1] << 8) | prog[pc]) + yr ];
     pc+=2;
 }
 
 void _21andN(){
-    check_NZ();
     ac &= ram[ram[prog[pc]+xr]];
     pc+=2;
 }
 
 void _31andN(){
-    check_NZ();
     ac &= ram[ram[prog[pc]] + yr];
     pc+=2;
 }
 
+void _30bmiR() {
+    pc += (((sr & N_FLAG))>0) * (((prog[pc] >> 7) == 1) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc]);          //prog[pc]
+    pc++;
+}
 void _D0bneR(){
     pc += (!((sr & Z_FLAG) >> 1)) * (((prog[pc] >> 7) == 1) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc]);          //prog[pc]
     pc++;
-    }
+}
+
+void _10bplR() {
+    pc += (!((sr & N_FLAG) >> 1)) * (((prog[pc] >> 7) == 1) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc]);          //prog[pc]
+    pc++;
+}
+
 
 void _50bvcR(){
 
@@ -420,31 +427,23 @@ void _C8inyM(){
     yr++;
 }
 
-/*
-JMP
 
-    Jump to New Location
+void _4CjmpA() {
+    pc = prog[pc] | (prog[pc + 1] << 8);
+}
 
-    (PC+1) -> PCL
-    (PC+2) -> PCH
-    N	Z	C	I	D	V
-    -	-	-	-	-	-
-    addressing	assembler	opc	bytes	cycles
-    absolute	JMP oper	4C	3	3  
-    indirect	JMP (oper)	6C	3	5  
-JSR
+void _6CjmpN() {
+    bigEndianTmp = prog[pc] | prog[pc + 1] << 8;
+    pc = ram[bigEndianTmp] | ram[bigEndianTmp + 1] << 8;
+}
 
-    Jump to New Location Saving Return Address
-
-    push (PC+2),
-    (PC+1) -> PCL
-    (PC+2) -> PCH
-    N	Z	C	I	D	V
-    -	-	-	-	-	-
-    addressing	assembler	opc	bytes	cycles
-    absolute	JSR oper	20	3	6  
-
-*/
+void _20jsrA() {
+    bigEndianTmp = pc + 2;
+    ram[STACK_END | sp] = bigEndianTmp >> 8;
+    ram[STACK_END | sp-1] = bigEndianTmp;
+    sp -= 2;
+    pc = prog[pc] | (prog[pc+1] << 8);
+}
 
 void _A9ldaI(){
     check_NZ();
@@ -654,49 +653,22 @@ void _0EaslA(){
 }
 
 
-/*
+void _48phaM() {
+    ram[STACK_END | sp--] = ac;
+}
 
-    Push Accumulator on Stack
+void _08phpM() {
+    ram[STACK_END | sp--] = sr;
+}
 
-    push A
-    N	Z	C	I	D	V
-    -	-	-	-	-	-
-    addressing	assembler	opc	bytes	cycles
-    implied	PHA	48	1	3  
-PHP
+void _68plaM() {
+    ac = ram[STACK_END | ++sp];
+}
 
-    Push Processor Status on Stack
+void _28plpM() {
+    sr = ram[STACK_END | ++sp];
+}
 
-    The status register will be pushed with the break
-    flag and bit 5 set to 1.
-
-    push SR
-    N	Z	C	I	D	V
-    -	-	-	-	-	-
-    addressing	assembler	opc	bytes	cycles
-    implied	PHP	08	1	3  
-PLA
-
-    Pull Accumulator from Stack
-
-    pull A
-    N	Z	C	I	D	V
-    +	+	-	-	-	-
-    addressing	assembler	opc	bytes	cycles
-    implied	PLA	68	1	4  
-PLP
-
-    Pull Processor Status from Stack
-
-    The status register will be pulled with the break
-    flag and bit 5 ignored.
-
-    pull SR
-    N	Z	C	I	D	V
-    from stack
-    addressing	assembler	opc	bytes	cycles
-    implied	PLP	28	1	4  
-*/
 
 uint8_t roTmp; // tmp used for storing the MSB or LSB before cycle-shifting
 
@@ -793,6 +765,11 @@ RTS
     implied	RTS	60	1	6  
 
     */
+
+void _60rtsM() {
+    pc = ram[STACK_END|sp + 1] | (ram[STACK_END | sp + 2] << 8);
+    sp += 2;
+}
 
 void _E9sbcI(){
     check_NZ();
@@ -1174,25 +1151,37 @@ void _EAnopM(){
     NOP;
 }
 
+/*
+_30bmiR() {
+    pc += (((sr & N_FLAG) >> 1)) * (((prog[pc] >> 7) == 1) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc]);          //prog[pc]
+    pc++;
+}
+void _D0bneR(){
+    pc += (!((sr & Z_FLAG) >> 1)) * (((prog[pc] >> 7) == 1) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc]);          //prog[pc]
+    pc++;
+}
+
+void _10bplR() {
+*/
 void (*opCodePtr[])() = {_00brk_, _01oraN, _02jam, E, _04nopZ, _05oraZ, _06aslZ, _07sloZ, 
-                        E, _09oraI, _0Aasl_, _0BancI, _0CnopA, _0DoraA, _0EaslA, _0FsloA,
-                        E, _11oraN, E, E, _14nopZ, _15oraZ, E, E,
+                        _08phpM, _09oraI, _0Aasl_, _0BancI, _0CnopA, _0DoraA, _0EaslA, _0FsloA,
+                        _10bplR, _11oraN, E, E, _14nopZ, _15oraZ, E, E,
                         _18clcM, _19oraA, _1AnopM, E, _1CnopA, _1DoraA, E, E, 
-                        E, _21andN, E, E, E, _25andZ,
-                        _26rolZ, E, E, _29andI, _2ArolC, E, E, _2DandA, 
-                        _2ErolA, E, E, _31andN, E, E, _34nopZ, _35andZ,
+                        _20jsrA, _21andN, E, E, E, _25andZ,
+                        _26rolZ, E, _28plpM, _29andI, _2ArolC, E, E, _2DandA, 
+                        _2ErolA, E, _30bmiR, _31andN, E, E, _34nopZ, _35andZ,
                         _36rolZ, E, _38secM, _39andA, _3AnopM, E, _3CnopA, _3DandA,
                         _3ErolA, E, E, _41eorN, E, E, _44nopZ, _45eorZ, _46lsrZ,
-                        E, E, _49eorI, _4AlsrC, E, E, _4DeorA, _4ElsrA,
+                        E, _48phaM, _49eorI, _4AlsrC, E, _4CjmpA, _4DeorA, _4ElsrA,
                         E, _50bvcR, _51eorN, E, E, _54nopZ, _55eorZ, _56lsrZ,
                         E, _58cliM, _59eorA, _5AnopM, E, _5CnopA, _5DeorA, _5ElsrA,
-                        E, E, E, E, E, _64nopZ, _65adcZ, _66rorZ,
-                        E, E, _69adcI, _6ArorC, E, E, E, _6ErorA,
+                        E, _60rtsM, E, E, E, _64nopZ, _65adcZ, _66rorZ,
+                        E, _68plaM, _69adcI, _6ArorC, E, _6CjmpN, E, _6ErorA,
                         E, _70bvsR, E, E, E, _74nopZ, _75adcZ, _76rorZ,
                         E, _78seiM, E, _7AnopM, E, _7CnopA, E, _7ErorA,
                         E, _80nopI, E, _82nopI, E, _84styZ, _85staZ, _86stxZ,
                         E, _88deyM, _89nopI, _8AtxaM, E, _8CstyA, _8DstaA, _8EstxA,
-                        E, E, E, E, E, _94styZ, _95staZ, _96stxZ,
+                        E, E, _91staZ, E, E, _94styZ, _95staZ, _96stxZ,
                         E, _98tyaM, _99staA, _9AtxsM, E, E, _9DstaA, E,
                         E, _A0ldyI, _A1ldaN, _A2ldxI, E, _A4ldyZ, _A5ldaZ, _A6ldxZ,
                         E, _A8tayM, _A9ldaI, _AAtaxM, E, E, _ADldaA, _AEldxA,
@@ -1203,7 +1192,7 @@ void (*opCodePtr[])() = {_00brk_, _01oraN, _02jam, E, _04nopZ, _05oraZ, _06aslZ,
                         E, _D0bneR, _D1cmpN, E, E, _D4nopZ, _D5cmpZ, _D6dexZ,
                         E, _D8cldM, _D9cmpA, _DAnopM, E, _DCnopA, _DDcmpA, E,
                         E, _E0cpxI, _E1sbcN, _E2nopI, E, E, _E5sbcZ, _E6incZ,
-                        E, _E8inxM, _E9sbcI, _EAnopM, E, E, _EDsbcA, _EEincA,
+                        E, _E8inxM, _E9sbcI, _EAnopM, _E9sbcI, E, _EDsbcA, _EEincA,
                         E, E, _F1sbcN, E, E, _F4nopZ, _F5sbcZ, E,
                         E, E, _F9sbcA, _FAnopM, E, _FCnopA, _FDsbcA, E, E
                         };
@@ -1228,7 +1217,7 @@ class Cpu{
 
         void run(){
             while(!jammed){
-                to_string();
+                afficher();
                 exec(prog);
                 
                 //updateFlags();
@@ -1236,8 +1225,13 @@ class Cpu{
             printf("\nCPU jammed at pc = $%X", pc-1);
         }
 
-        void to_string(){
-            printf("\npc: %04X ac: %02x xr: %02x yr: %02x sr: %02x sp: %02x ",pc,ac,xr,yr,sr,sp);
+        void afficher(){
+            printf("\npc: %04X ac: %02x xr: %02x yr: %02x sp: %02x sr: %02x ",pc,ac,xr,yr,sp,sr);
+            for (int i = 0; i < 8; i++) {
+                if ((i!=2)&(i!=3))
+                printf("%d", (sr >> 7-i) & 1);
+            }
+           
         }
        
 };
@@ -1245,6 +1239,8 @@ class Cpu{
 int main(){
 
     //measure the time accurately (milliseconds) it takes to run the program
+    pc = 0x8000;
+    insertAt(ram, 0x8000, prog2);
     Cpu f(ram,prog);
     /*
     auto start = std::chrono::high_resolution_clock::now();
@@ -1258,6 +1254,15 @@ int main(){
     */
 
    f.run();
+   
 
     return 0;
+}
+
+void insertAt(uint8_t* mem, uint64_t at, uint16_t* prog2){
+    uint32_t i = 0;
+    while (prog2[i] != 0xDEAD) {
+        mem[at + i] = prog2[i];
+        i++;
+    }
 }
