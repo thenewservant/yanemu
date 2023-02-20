@@ -1,7 +1,7 @@
 #include "simpleCPU.hpp"
 
  uint16_t pc;
- uint8_t ac, xr, yr, sr = SR_RST, sp = 0xFF;
+ uint8_t ac=0, xr, yr, sr = SR_RST, sp = 0xFF;
 #define S 0x00
 #define STACK_END 0x100
 bool jammed = false; // is the cpu jammed because of certain instructions?
@@ -24,11 +24,14 @@ bool jammed = false; // is the cpu jammed because of certain instructions?
 //uint8_t prog[] = {0x0C, 0xFF, 0xFF,0x0C, 0xFF, 0xFF,0x0C, 0xFF, 0xFF,0x00};
 //uint8_t prog[] = { 0x6C, 0x08, 0x00, 0x00, 0x00, 0x69, 0x10, 0x00, 0x05, 0x00 };
 //uint8_t prog[] = {  0xA2,0x10 , 0x8E ,0x00,0x02 };
-extern uint8_t *ram = (uint8_t *) malloc((1 << 16) * sizeof(uint8_t));
+extern uint8_t *ram = (uint8_t *) calloc((1 << 16) , sizeof(uint8_t));
 
 uint8_t* prog = ram;
 
-uint16_t prog2[] = { 0x69, 0xFF, 0x30, 0x04, 0x00, 0x00, 0x00, 0x00, 0x69, 0x10, 0xDEAD};
+#define ORG 0x0000 // start position of PRG-ROM in map
+uint16_t prog2[] = { 
+    0x69, 0x87, 0x69, 0x48, 0x69, 0x00, 0x65, 0x03, 0x65, 0x02, 0x65, 0x00, 0x69, 0x29, 0x65, 0x27, 0x65, 0x28, 0x69, 0x01, 0x10, 0xFC
+    , 0xDEAD};
 
 
 
@@ -45,27 +48,33 @@ using namespace std;
     M / C / _ / I / Z / A / N / R : iMplied, aCcumulator, Single-byte, Immediate, Zeropage, Absolute, iNdirect, Relative
     
 */
+uint16_t addTmp = 0; // used to store the result of an addition
 
-void check_NZ(){
-    sr = (sr & ~N_FLAG) | (ac | xr | yr ) & N_FLAG;
-    sr = (sr & ~Z_FLAG) | (ac & xr & yr & Z_FLAG) ;
+inline void check_NZ() {
+	sr = (sr & ~N_FLAG) | (ac | xr | yr) & N_FLAG;
+	sr = (sr & ~Z_FLAG) | (ac & xr & yr & Z_FLAG);
 }
 
-uint16_t addTmp = 0; // used to store the result of an addition
+inline void check_CV() {
+    sr = (addTmp) > 0xff ? (sr | C_FLAG) : sr & ~C_FLAG;
+    sr = (sr & ~V_FLAG) | V_FLAG&((N_FLAG & ~(ac ^ prog[pc]) & (ac ^ addTmp)) >> 1);
+}
 
 void _69adcI(){
     addTmp = ac + prog[pc] + (sr & C_FLAG);
-    ac = addTmp;
-    sr = (addTmp) > 0xff ? (sr | C_FLAG) : sr & ~C_FLAG;
+    check_CV();
+    ac = addTmp; // relies on auto uint8_t conversion.
     pc++;
     check_NZ();
 }
 
-void _65adcZ(){
-    ac += ram[prog[pc]] + (sr & C_FLAG);
-    sr = (ac + ram[prog[pc]] + (sr & C_FLAG)) > 0xff ? sr | C_FLAG : sr & ~C_FLAG;
-    pc++;
-    check_NZ();
+void _65adcZ() {
+	addTmp = ac + ram[prog[pc]] + (sr & C_FLAG);
+	//sr = (ac + ram[prog[pc]] + (sr & C_FLAG)) > 0xff ? sr | C_FLAG : sr & ~C_FLAG;
+    check_CV();
+    ac = addTmp;
+	pc++;
+	check_NZ();
 }
 
 void _75adcZ(){
@@ -88,36 +97,43 @@ void _29andI(){
 }
 
 void _25andZ(){
+    check_NZ();
     ac &= ram[prog[pc]];
     pc++;
 }
 
 void _35andZ(){
+    check_NZ();
     ac &= ram[prog[pc] + xr];
     pc++;
 }
 
 void _2DandA(){
+    check_NZ();
     ac &= ram[(prog[pc+1] << 8) | prog[pc]];
     pc+=2;
 }
 
 void _3DandA(){
+    check_NZ();
     ac &= ram[((prog[pc+1] << 8) | prog[pc]) + xr ];
     pc+=2;
 }
 
 void _39andA(){
+    check_NZ();
     ac &= ram[((prog[pc+1] << 8) | prog[pc]) + yr ];
     pc+=2;
 }
 
 void _21andN(){
+    check_NZ();
     ac &= ram[ram[prog[pc]+xr]];
     pc+=2;
 }
 
 void _31andN(){
+    check_NZ();
     ac &= ram[ram[prog[pc]] + yr];
     pc+=2;
 }
@@ -143,29 +159,24 @@ void _50bvcR(){
     pc++;
 }
 
-void _70bvsR(){
-
+void _70bvsR() {
     pc += (!(sr^V_FLAG&V_FLAG)) * ((prog[pc] >> 7 == 1) ? (~prog[pc]+1 ) :  prog[pc]);          //prog[pc]
     pc++;
 }
 
 void _18clcM(){
-    check_NZ();
     sr &= ~C_FLAG;
 }
 
 void _D8cldM(){
-    check_NZ();
     sr &= ~D_FLAG;
 }
 
 void _58cliM(){
-    check_NZ();
     sr &= ~I_FLAG;
 }
 
 void _B8clvM(){
-    check_NZ();
     sr &= ~V_FLAG;
 }
 
@@ -1198,11 +1209,12 @@ void (*opCodePtr[])() = {_00brk_, _01oraN, _02jam, E, _04nopZ, _05oraZ, _06aslZ,
                         };
 
                         
-
+uint8_t nums=0;
 class Cpu{
     private:
         uint8_t *mem;
         uint8_t *prog;
+        
     public:
         Cpu(uint8_t *ram, uint8_t *pr){
 
@@ -1217,18 +1229,20 @@ class Cpu{
 
         void run(){
             while(!jammed){
-                afficher();
+ 
                 exec(prog);
+                afficher();
                 
-                //updateFlags();
+                
             }
             printf("\nCPU jammed at pc = $%X", pc-1);
+            //nums += 1;
         }
 
         void afficher(){
             printf("\npc: %04X ac: %02x xr: %02x yr: %02x sp: %02x sr: %02x ",pc,ac,xr,yr,sp,sr);
             for (int i = 0; i < 8; i++) {
-                if ((i!=2)&(i!=3))
+                //if ((i!=2)&(i!=3))
                 printf("%d", (sr >> 7-i) & 1);
             }
            
@@ -1239,21 +1253,24 @@ class Cpu{
 int main(){
 
     //measure the time accurately (milliseconds) it takes to run the program
-    pc = 0x8000;
-    insertAt(ram, 0x8000, prog2);
+    pc = ORG;
+    insertAt(ram, ORG, prog2);
     Cpu f(ram,prog);
     /*
     auto start = std::chrono::high_resolution_clock::now();
-    for (uint64_t i = 0; i < 200000000; i++){
+    for (uint64_t i = 0; i <1000000000; i++) {
         pc = 0;
-        //f.run();
+        f.run();
+        nums += 1;
     }
+    
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
     std::cout << " elapsed time: " << elapsed.count() << " s\n"; 
     */
-
+    
    f.run();
+   //printf("%d", nums);
    
 
     return 0;
