@@ -1,4 +1,5 @@
 #include "firstAPU.h"
+#include "simpleCPU.hpp"
 #include <corecrt_math.h>
 #include <stdio.h>
 
@@ -7,8 +8,11 @@
 static const uint8_t lengthCounterLUT[] = { 10, 254, 20, 2, 40, 4, 80, 6, 160, 8,
 											60, 10, 14, 12, 26, 14, 12, 16, 24,
 											18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
+static const uint8_t triangleLUT[] = { 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,
+							0,  1,  2,  3,  4,  5,  6,  7,  8,  9, 10, 11, 12, 13, 14, 15 };
 
-uint8_t* mem = (uint8_t*) malloc(0x4020 * sizeof(int));
+
+//uint8_t* ram = (uint8_t*) malloc(0x4020 * sizeof(int));
 
 uint8_t dutyCycle1, dutyCycle2;
 uint16_t timer[3]; // timers for pulse 1 & 2, and triangle
@@ -23,27 +27,37 @@ void workSound(char * buffer, uint64_t bufferSize) {
 								{0, 1, 1, 0, 0, 0, 0, 0},
 								{0, 1, 1, 1, 1, 0, 0, 0},
 								{1, 0, 0, 1, 1, 1, 1, 1} };
-
-	mem[0x4000] = 0b10011111; //pulse1 
-	mem[0x4004] = 0b10011000; //pulse2
+	/*
+	ram[0x4000] = 0b10011000; //pulse1 settings
+	ram[0x4004] = 0b10011000; //pulse2 settings
 	//pulse1 timings
-	mem[0x4002] = 0b11100110; //pulse1 low timer bits 
-	mem[0x4003] = 0b11111000; // pulse1 shall be of lower frequency (approx 235 hz)
+	ram[0x4002] = 0b11100110; //pulse1 low timer bits 
+	ram[0x4003] = 0b11111000; // pulse1 shall be of lower frequency (approx 235 hz)
 
 	//pulse2 timings
-	mem[0x4006] = 0b00000110; //pulse2 low timer bits
-	mem[0x4007] = 0b11111000;//approx 560 hz
+	ram[0x4006] = 0b01000000; //pulse2 low timer bits
+	ram[0x4007] = 0b11111000;//approx 560 hz
+
+	ram[0x400A] = 0b01100110; //triangle
+	ram[0x400B] = 0b00000000;
+	*/
+	//ram = ram;
 	readChannels();
 
 	const double frequency = 440.0;
 	const double amplitude = 1;
 	const uint64_t sampleRate = 44100;
 
-	uint16_t pulse1Counter = timer[0], pulse2Counter = timer[1];
+	uint16_t pulse1Counter = timer[0], pulse2Counter = timer[1], triangleCounter = timer[2];
+	//tIsUp means Triangle is going down
+	bool p1IsUp = true, p2IsUp = true, tIsUp = true ;
 
-	bool p1IsUp = true, p2IsUp = true;
-
+	char sample = 0;
+	char sampleTriangle = 0;
+	
 	for (int i = 0; i < bufferSize; i += 1) {
+		
+		readChannels();
 		if (!pulse1Counter) {
 			p1IsUp ^= 1;
 			pulse1Counter = timer[0];
@@ -52,19 +66,28 @@ void workSound(char * buffer, uint64_t bufferSize) {
 			p2IsUp ^= 1;
 			pulse2Counter = timer[1];
 		}
+		if (!triangleCounter) {
+			triangleCounter = timer[2];
+		}
 
-		
+		//ram[0x4002] = 0;
+		//ram[0x4006] -= ram[0x4006]; //pulse2 low timer bits
+
+		//printf("\n%d", ram[0x4002]);
 		//printf("%d, %d\n", dutyCycle1, dutyCycle2);
 		
-		char sample=0;
+		
 		sample = envelope[0]*((p1IsUp * pulse1Counter--) > 0);//p1
 		sample += envelope[1] * ((p2IsUp * pulse2Counter--) > 0);//p2
 
+		sampleTriangle = 1*triangleLUT[((triangleCounter--)*32/(timer[2]|(timer[2]==0))) % 32];
+	
+		//printf("\n%d", sampleTriangle);
 		//printf("\n%d", sample);
 		//char sample = (i % (int)(sampleRate / (frequency))) < (sampleRate / (2*frequency));
 		 //sample = (amplitude * 127 * (2*sample - 1));
 
-		buffer[i] = sample;
+		buffer[i] = 4*sample/2 + 5*sampleTriangle;
 		
 	}
 
@@ -76,20 +99,20 @@ void workSound(char * buffer, uint64_t bufferSize) {
 }
 
 void readChannels(){
-	dutyCycle1 = (mem[0x4000] & DUTY_CYCLE) >> 6;
-	dutyCycle2 = (mem[0x4004] & DUTY_CYCLE) >> 6;
-	timer[0] = mem[0x4002] | ((mem[0x4003] & TIMER_HIGH) << 8); //p1
-	timer[1] = mem[0x4006] | ((mem[0x4007] & TIMER_HIGH) << 8);	//p2
-	timer[2] = mem[0x400A] | ((mem[0x400B] & TIMER_HIGH) << 8); //triangle
+	dutyCycle1 = (ram[0x4000] & DUTY_CYCLE) >> 6;
+	dutyCycle2 = (ram[0x4004] & DUTY_CYCLE) >> 6;
+	timer[0] = ram[0x4002] | ((ram[0x4003] & TIMER_HIGH) << 8); //p1
+	timer[1] = ram[0x4006] | ((ram[0x4007] & TIMER_HIGH) << 8);	//p2
+	timer[2] = ram[0x400A] | ((ram[0x400B] & TIMER_HIGH) << 8); //triangle
 
-	envelope[0] = mem[0x4000] & ENVELOPE; //p1
-	envelope[1] = mem[0x4004] & ENVELOPE; //p2
-	envelope[2] = mem[0x400C] & ENVELOPE; //triangle
+	envelope[0] = ram[0x4000] & ENVELOPE; //p1
+	envelope[1] = ram[0x4004] & ENVELOPE; //p2
+	envelope[2] = ram[0x400C] & ENVELOPE; //triangle
 
-	lengthCounter[0] = (mem[0x4003] >> 3) & LEN_COUNT;
-	lengthCounter[1] = (mem[0x4007] >> 3) & LEN_COUNT;
-	lengthCounter[2] = (mem[0x400B] >> 3) & LEN_COUNT;
-	lengthCounter[3] = (mem[0x400F] >> 3) & LEN_COUNT;
+	lengthCounter[0] = (ram[0x4003] >> 3) & LEN_COUNT;
+	lengthCounter[1] = (ram[0x4007] >> 3) & LEN_COUNT;
+	lengthCounter[2] = (ram[0x400B] >> 3) & LEN_COUNT;
+	lengthCounter[3] = (ram[0x400F] >> 3) & LEN_COUNT;
 
 }
 

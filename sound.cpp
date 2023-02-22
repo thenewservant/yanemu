@@ -1,16 +1,11 @@
-#include <windows.h>
-#include <mmsystem.h>
-#include <dsound.h>
-#include <math.h>
-#include "firstAPU.h"
-#include <stdio.h>
+#include "sound.h"
 #pragma comment(lib, "dsound.lib")
 
 // Define your audio settings
 const int sampleRate = 44100;
 const int numChannels = 1;
 const int bitsPerSample = 8;
-const uint64_t bufferSize = 10*sampleRate * numChannels * bitsPerSample / 8;
+const uint64_t bufferSize = 5*sampleRate * numChannels * bitsPerSample / 8;
 
 // Define your sine wave parameters
 const double frequency = 440.0;
@@ -43,7 +38,6 @@ void createSineWaveBuffer()
     //uint64_t dur;
     workSound(buffer, bufferSize);
 
-    printf("ee");
     
 
     // Create a secondary sound buffer
@@ -102,10 +96,18 @@ int soundmain()
     // Create the sine wave buffer
     createSineWaveBuffer();
 
-
+    
     // Wait for the sound to finish playing
-    printf("\nkk");
-    Sleep(10000);
+    
+    
+    secondaryBuffer->SetCurrentPosition(0);
+    while (1) {
+        
+        Sleep(300);
+        secondaryBuffer->Release();
+        createSineWaveBuffer();
+        secondaryBuffer->SetCurrentPosition(0);
+    }
 
     // Release the objects
     secondaryBuffer->Release();

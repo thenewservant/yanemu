@@ -6,6 +6,7 @@
 #define STACK_END 0x100
 bool jammed = false; // is the cpu jammed because of certain instructions?
 
+
 //uint8_t prog[] = {0xA2, 0x05, 0xB4, 0x10, 0x00};
 /*uint8_t prog[] = {0x69, 0x80, 0x69, 0x01,
                     0x2A,  0x2A, 
@@ -24,13 +25,13 @@ bool jammed = false; // is the cpu jammed because of certain instructions?
 //uint8_t prog[] = {0x0C, 0xFF, 0xFF,0x0C, 0xFF, 0xFF,0x0C, 0xFF, 0xFF,0x00};
 //uint8_t prog[] = { 0x6C, 0x08, 0x00, 0x00, 0x00, 0x69, 0x10, 0x00, 0x05, 0x00 };
 //uint8_t prog[] = {  0xA2,0x10 , 0x8E ,0x00,0x02 };
-extern uint8_t *ram = (uint8_t *) calloc((1 << 16) , sizeof(uint8_t));
+uint8_t *ram = (uint8_t *) calloc((1 << 16) , sizeof(uint8_t));
 
 uint8_t* prog = ram;
-
+uint8_t caca = 0xDD;
 #define ORG 0x0000 // start position of PRG-ROM in map
-uint16_t prog2[] = { 
-    0x69, 0x87, 0x69, 0x48, 0x69, 0x00, 0x65, 0x03, 0x65, 0x02, 0x65, 0x00, 0x69, 0x29, 0x65, 0x27, 0x65, 0x28, 0x69, 0x01, 0x10, 0xFC
+uint16_t prog2[] = {
+    0xE9, 0x80, 0xE9, 0xFE
     , 0xDEAD};
 
 
@@ -48,7 +49,7 @@ using namespace std;
     M / C / _ / I / Z / A / N / R : iMplied, aCcumulator, Single-byte, Immediate, Zeropage, Absolute, iNdirect, Relative
     
 */
-uint16_t addTmp = 0; // used to store the result of an addition
+uint16_t aluTmp = 0; // used to store the result of an addition
 
 inline void check_NZ() {
 	sr = (sr & ~N_FLAG) | (ac | xr | yr) & N_FLAG;
@@ -56,23 +57,23 @@ inline void check_NZ() {
 }
 
 inline void check_CV() {
-    sr = (addTmp) > 0xff ? (sr | C_FLAG) : sr & ~C_FLAG;
-    sr = (sr & ~V_FLAG) | V_FLAG&((N_FLAG & ~(ac ^ prog[pc]) & (ac ^ addTmp)) >> 1);
+    sr = (aluTmp) > 0xff ? (sr | C_FLAG) : sr & ~C_FLAG;
+    sr = (sr & ~V_FLAG) | V_FLAG&((N_FLAG & ~(ac ^ prog[pc]) & (ac ^ aluTmp)) >> 1);
 }
 
 void _69adcI(){
-    addTmp = ac + prog[pc] + (sr & C_FLAG);
+    aluTmp = ac + prog[pc] + (sr & C_FLAG);
     check_CV();
-    ac = addTmp; // relies on auto uint8_t conversion.
+    ac = aluTmp; // relies on auto uint8_t conversion.
     pc++;
     check_NZ();
 }
 
 void _65adcZ() {
-	addTmp = ac + ram[prog[pc]] + (sr & C_FLAG);
+	aluTmp = ac + ram[prog[pc]] + (sr & C_FLAG);
 	//sr = (ac + ram[prog[pc]] + (sr & C_FLAG)) > 0xff ? sr | C_FLAG : sr & ~C_FLAG;
     check_CV();
-    ac = addTmp;
+    ac = aluTmp;
 	pc++;
 	check_NZ();
 }
@@ -781,11 +782,17 @@ void _60rtsM() {
     pc = ram[STACK_END|sp + 1] | (ram[STACK_END | sp + 2] << 8);
     sp += 2;
 }
+/*aluTmp = ac + prog[pc] + (sr & C_FLAG);
+    check_CV();
+    ac = aluTmp; // relies on auto uint8_t conversion.*/
+
 
 void _E9sbcI(){
-    check_NZ();
-    ac -= prog[pc] - ((sr & C_FLAG) ^ C_FLAG);
+    aluTmp = ac - prog[pc] - ((sr & C_FLAG) ^ C_FLAG);
+    check_CV();
+    ac = aluTmp;
     pc++;
+    check_NZ();
 }
 
 void _E5sbcZ(){
@@ -997,61 +1004,50 @@ void _0BancI(){
 
 
 void _1AnopM(){
-    check_NZ();
     NOP;
 }
 
 void _3AnopM(){
-    check_NZ();
     NOP;
 }
 
 void _5AnopM(){
-    check_NZ();
     NOP;
 }
 
 void _7AnopM(){
-    check_NZ();
     NOP;
 }
 
 void _DAnopM(){
-    check_NZ();
     NOP;
 }
 
 void _FAnopM(){
-    check_NZ();
     NOP;
 }
 
 void _80nopI(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _82nopI(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _89nopI(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _C2nopI(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _E2nopI(){
-    check_NZ();
     NOP;
     pc++;
 }
@@ -1059,55 +1055,46 @@ void _E2nopI(){
 
 
 void _04nopZ(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _44nopZ(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _64nopZ(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _14nopZ(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _34nopZ(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _54nopZ(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _74nopZ(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _D4nopZ(){
-    check_NZ();
     NOP;
     pc++;
 }
 
 void _F4nopZ(){
-    check_NZ();
     NOP;
     pc++;
 }
@@ -1115,50 +1102,42 @@ void _F4nopZ(){
 // NOPs
 
 void _0CnopA(){
-    check_NZ();
     NOP;
     pc += 2;
 }
 
 void _1CnopA(){
-    check_NZ();
     NOP;
     pc += 2;
 }
 
 void _3CnopA(){
-    check_NZ();
     NOP;
     pc += 2;
 }
 
 void _5CnopA(){
-    check_NZ();
     NOP;
     pc += 2;
 }
 
 void _7CnopA(){
-    check_NZ();
     NOP;
     pc += 2;
 }
 
 void _DCnopA(){
-    check_NZ();
     NOP;
     pc += 2;
 }
 
 void _FCnopA(){
-    check_NZ();
     NOP;
     pc += 2;
 }
 
 
 void _EAnopM(){
-    check_NZ();
     NOP;
 }
 
@@ -1210,6 +1189,30 @@ void (*opCodePtr[])() = {_00brk_, _01oraN, _02jam, E, _04nopZ, _05oraZ, _06aslZ,
 
                         
 uint8_t nums=0;
+uint64_t loops = 0;
+tstime tt = { 10,10 };
+
+BOOLEAN nanosleep(LONGLONG ns) {
+    /* Declarations */
+    HANDLE timer;	/* Timer handle */
+    LARGE_INTEGER li;	/* Time defintion */
+    /* Create timer */
+    if (!(timer = CreateWaitableTimer(NULL, TRUE, NULL)))
+        return FALSE;
+    /* Set timer properties */
+    li.QuadPart = -ns;
+    if (!SetWaitableTimer(timer, &li, 0, NULL, NULL, FALSE)) {
+        CloseHandle(timer);
+        return FALSE;
+    }
+    /* Start & wait for timer */
+    WaitForSingleObject(timer, INFINITE);
+    /* Clean resources */
+    CloseHandle(timer);
+    /* Slept without problems */
+    return TRUE;
+}
+
 class Cpu{
     private:
         uint8_t *mem;
@@ -1224,17 +1227,21 @@ class Cpu{
 
         void exec(uint8_t *prgm){
             opCodePtr[prgm[(pc)++]](); 
-            //++pc;
         }
 
-        void run(){
-            while(!jammed){
- 
-                exec(prog);
-                afficher();
-                
-                
+        void run(uint8_t sleepTime  = 0){
+            if (sleepTime) {
+                while (!jammed) {
+                    Sleep(sleepTime); exec(prog); afficher();
+                }
             }
+            else {
+                while (!jammed) {
+                    exec(prog); afficher();
+                }
+            }
+            
+
             printf("\nCPU jammed at pc = $%X", pc-1);
             //nums += 1;
         }
@@ -1250,12 +1257,12 @@ class Cpu{
        
 };
 
-int main(){
-
+void cpuf() {
     //measure the time accurately (milliseconds) it takes to run the program
+
     pc = ORG;
     insertAt(ram, ORG, prog2);
-    Cpu f(ram,prog);
+    Cpu f(ram, prog);
     /*
     auto start = std::chrono::high_resolution_clock::now();
     for (uint64_t i = 0; i <1000000000; i++) {
@@ -1263,16 +1270,28 @@ int main(){
         f.run();
         nums += 1;
     }
-    
+
     auto finish = std::chrono::high_resolution_clock::now();
     std::chrono::duration<double> elapsed = finish - start;
-    std::cout << " elapsed time: " << elapsed.count() << " s\n"; 
+    std::cout << " elapsed time: " << elapsed.count() << " s\n";
     */
-    
-   f.run();
-   //printf("%d", nums);
-   
 
+    f.run(100);
+}
+
+int main(){
+
+    //cpuf();
+    ram[0x4001] = 29;
+   std::thread tcpu(cpuf);
+   int son = 0;
+   if (son) {
+       std::thread tsound(soundmain);
+       tsound.join();
+   }
+  
+   tcpu.join();
+   
     return 0;
 }
 

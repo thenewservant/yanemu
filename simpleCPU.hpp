@@ -8,6 +8,8 @@
 #include <chrono>
 #include <thread>
 #include <time.h>
+#include <windows.h>
+#include "sound.h"
 
 #define BE_LE_U16(u16) (u16 & 0xff00) >> 8 | (u16 & 0x00ff) << 8
 #define E NULL
@@ -27,4 +29,8 @@
 
 #define SR_RST 0b00110100 // IGNORED(_), B and INTERRUPT are set to 1
 
+extern uint8_t* ram;
+extern uint8_t caca;
+
+typedef struct timespec tstime;
 void insertAt(uint8_t* mem, uint64_t at, uint16_t* prog2);
