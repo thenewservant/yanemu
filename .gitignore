@@ -33,5 +33,6 @@
 # Compiled code or bin
 *.nes
 *.bin
+*.prg
 yanemu
 tests
