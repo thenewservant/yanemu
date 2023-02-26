@@ -30,4 +30,8 @@
 *.exe
 *.out
 *.app
+# Compiled code or bin
+*.nes
+*.bin
 yanemu
+tests
