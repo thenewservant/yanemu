@@ -9,23 +9,17 @@ int main()
             SetPixel(hdc, x, y, RGB(x*y + x*x  -y *y, x, y));
 } */
 
-#include<ctime>
-#include <cstdio>
-#include <windows.h>
-#include <objidl.h>
-#include <gdiplus.h>
-#include <cstdint>
-#include <cmath>
-
-#include <ctime>
+#include "graphics.h"
 
 using namespace Gdiplus;
 #pragma comment (lib,"Gdiplus.lib")
 
 uint64_t n = 0;
-uint8_t* bytes2 = (uint8_t*)malloc(600 * 300 * sizeof(uint8_t) * 3);
-uint64_t width = 256;
-uint64_t height = 240;
+uint8_t ratio = 10;
+uint64_t width = 20;
+uint64_t height = 20;
+uint8_t* bytes2 = (uint8_t*)malloc(5*ratio*ratio*width * height * sizeof(uint8_t) * 3);
+
 
 VOID onOpening(HDC hdc) {
 
@@ -50,21 +44,35 @@ VOID onOpening(HDC hdc) {
     // Create an array of bytes to hold the pixel data, and copy the pixel data into it.
 
 
+    for (int i = 0; i < ratio*ratio*width * height * 3; i += 3) {
+        bytes2[i] = 0; //blue
+        bytes2[i + 1] = 255; //green
+        bytes2[i + 2] = i;  //red
+    }
 
-    for (int y = 0; y < height; ++y)
-    {
-        for (int x = 0; x < width; ++x)
-        {
-            bytes2[y * width * 4 + x * 4] = (uint8_t)127 + 127 * rand();
-            bytes2[y * width * 4 + x * 4 + 1] = (uint8_t)127 + 127 * rand();
-            bytes2[y * width * 4 + x * 4 + 2] = (uint8_t)127 + 127 * rand();
+    // do the same but make a "zoom" of the image, each pixel is a square of 5 pixels
+    // an array of pixels appears 5 times bigger
+
+    for (int i = 0; i < ratio*ratio*width * height * 3; i += 3) {
+        for (int j = 0; j < ratio*ratio; j++) {
+            bytes2[i + j * 3 * ratio * width] = 0; //blue
+            bytes2[i + j * 3 * ratio * width + 1] = 255; //green
+            bytes2[i + j * 3 * ratio * width + 2] = (127*(i%2));  //red
         }
     }
-    //Do the exact same thing with a 32 bit RGB bitmap
 
 
 
-    Bitmap bmp2(width, height, width * 4, PixelFormat32bppRGB, bytes2);
+  
+
+    
+
+    //Do the exact same thing with a 24 bit RGB bitmap
+
+
+    Bitmap bmp2(ratio*width, ratio*height, ratio * width * 3, PixelFormat24bppRGB, (BYTE*)bytes2);
+
+    
 
 
     //Image image(L"draw.bmp");
