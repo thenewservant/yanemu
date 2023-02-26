@@ -1,11 +1,9 @@
 #include "simpleCPU.hpp"
 
- uint16_t pc;
- uint8_t ac=0, xr, yr, sr = SR_RST, sp = 0xFF;
-#define S 0x00
-#define STACK_END 0x100
-bool jammed = false; // is the cpu jammed because of certain instructions?
+uint16_t pc;
+uint8_t ac=0, xr, yr, sr = SR_RST, sp = 0xFF;
 
+bool jammed = false; // is the cpu jammed because of certain instructions?
 
 uint8_t *ram = (uint8_t *) calloc((1 << 16) , sizeof(uint8_t));
 
@@ -39,16 +37,16 @@ inline void check_NZ() {
 }
 
 inline void check_CV() {
-    sr = (aluTmp) > 0xff ? (sr | C_FLAG) : sr & ~C_FLAG;
-    sr = (sr & ~V_FLAG) | V_FLAG&((N_FLAG & ~(ac ^ termB) & (ac ^ aluTmp)) >> 1);
+	sr = (aluTmp) > 0xff ? (sr | C_FLAG) : sr & ~C_FLAG;
+	sr = (sr & ~V_FLAG) | V_FLAG & (((ac ^ termB) & (ac ^ aluTmp)) >> 1);
 }
 
 //adc core procedure -- termB is the operand as termA is always ACCUMULATOR
 inline void _adc() {
-    aluTmp = ac + termB + (sr & C_FLAG);
-    check_CV();
-    ac = aluTmp; // relies on auto uint8_t conversion.
-    check_NZ();
+	aluTmp = ac + termB + (sr & C_FLAG);
+	check_CV();
+	ac = aluTmp; // relies on auto uint8_t conversion.
+	check_NZ();
 }
 void _69adcI(){ //seemS OK
     termB = prog[pc];
@@ -168,14 +166,14 @@ void _F0beqR() {
 }
 
 void _24bitZ() {
-    termB = prog[pc];
-    sr = sr & ~N_FLAG & ~V_FLAG & ~Z_FLAG | termB & (N_FLAG | V_FLAG) | Z_FLAG & ac & termB;
+    termB = ram[prog[pc]];
+    sr = sr & ~N_FLAG & ~V_FLAG & ~Z_FLAG | termB & (N_FLAG | V_FLAG) | (((ac & termB) == 0) ? Z_FLAG : 0);
     pc++;
 }
 
 void _2CbitA() {
     ac &= ram[((prog[pc + 1] << 8) | prog[pc])];
-    sr = sr & ~N_FLAG & ~V_FLAG & ~Z_FLAG | termB & (N_FLAG | V_FLAG) | Z_FLAG & ac & termB;
+    sr = sr & ~N_FLAG & ~V_FLAG & ~Z_FLAG | termB & (N_FLAG | V_FLAG) | (((ac & termB) == 0) ? Z_FLAG : 0);
     pc++;
 }
 
@@ -222,56 +220,57 @@ void _B8clvM(){
 
 
 uint8_t tmpN = 0; // used to store the result of a subtraction on 8 bits (to further deduce the N flag)
+uint8_t m = 0; // temp memory for cmp computing
 
+inline void _cmp() {
+    tmpN = ac - m;
+    sr = sr & ~N_FLAG & ~Z_FLAG & ~C_FLAG | ((ac == m) ? Z_FLAG : 0) | ((ac >= m) ? C_FLAG : 0) | tmpN & N_FLAG;
+}
 void _C9cmpI(){
-    tmpN=ac-prog[pc];
-    sr = SR_RST + Z_FLAG * (ac == prog[pc]) + C_FLAG * (ac >= prog[pc]) + N_FLAG * (tmpN >> 7 == 1);
+    m = prog[pc];
+    _cmp();
     pc++;
 }
 
 void _C5cmpZ(){
-    tmpN=ac-prog[pc];
-    sr = SR_RST + Z_FLAG * (ac == ram[prog[pc]]) + C_FLAG * (ac >= ram[prog[pc]]) + N_FLAG * (tmpN >> 7 == 1);
+    m = ram[prog[pc]];
+    _cmp();
     pc++;
 }
 
 void _D5cmpZ(){
-    tmpN=ac-prog[pc];
-    sr = SR_RST + Z_FLAG * (ac == ram[prog[pc] + xr]) + C_FLAG * (ac >= ram[prog[pc] + xr]) + N_FLAG * (tmpN >> 7 == 1);
+    m = ram[prog[pc] + xr];
+    _cmp();
     pc++;
 }
 
 void _CDcmpA(){
-    tmpN=ac-prog[pc];
-    bigEndianTmp = (prog[pc+1] << 8) | prog[pc];
-    sr = SR_RST + Z_FLAG * (ac == ram[bigEndianTmp]) + C_FLAG * (ac >= ram[bigEndianTmp]) + N_FLAG * (tmpN >> 7 == 1);
+    m = ram[(prog[pc+1] << 8) | prog[pc]];
+    _cmp();
     pc+=2;
 }
 
 void _DDcmpA(){
-    bigEndianTmp = (prog[pc+1] << 8) | prog[pc];
-    sr = SR_RST + Z_FLAG * (ac == ram[bigEndianTmp + xr]) + C_FLAG * (ac >= ram[bigEndianTmp + xr]) + N_FLAG * (tmpN >> 7 == 1);
+    m = ram[(prog[pc+1] << 8) | prog[pc]];
+    _cmp();
     pc+=2;
 }
 
 void _D9cmpA(){
-    bigEndianTmp = (prog[pc+1] << 8) | prog[pc];
-    sr = SR_RST + Z_FLAG * (ac == ram[bigEndianTmp + yr]) + C_FLAG * (ac >= ram[bigEndianTmp + yr]) + N_FLAG * (tmpN >> 7 == 1);
+    m = ram[(prog[pc+1] << 8) | prog[pc]];
+    _cmp();
     pc+=2;
 }
 
 void _C1cmpN(){
-    check_NZ();
-    tmpN=ac-prog[pc];
-    bigEndianTmp = ram[prog[pc] + xr];
-    sr = SR_RST + Z_FLAG * (ac == ram[bigEndianTmp]) + C_FLAG * (ac >= ram[bigEndianTmp]) + N_FLAG * (tmpN >> 7 == 1);
+    m = ram[ram[prog[pc] + xr]];
+    _cmp();
     pc+=2;
 }
 
 void _D1cmpN(){
-    tmpN=ac-prog[pc];
-    bigEndianTmp = ram[prog[pc]] + yr;
-    sr = SR_RST + Z_FLAG * (ac == ram[bigEndianTmp]) + C_FLAG * (ac >= ram[bigEndianTmp]) + N_FLAG * (tmpN >> 7 == 1);
+    m = ram[ram[prog[pc]] + yr];
+    _cmp();
     pc+=2;
 }
 
@@ -868,112 +867,99 @@ void _78seiM(){
 
 
 void _85staZ(){
-    check_NZ();
     ram[prog[pc]] = ac;
     pc++;
 }
 
 void _95staZ(){
-    check_NZ();
     ram[prog[pc] + xr] = ac;
     pc++;
 }
 
 void _8DstaA(){
-    check_NZ();
     ram[(prog[pc+1] << 8) | prog[pc]] = ac;
     pc+=2;
 }
 
 void _9DstaA(){
-    check_NZ();
     ram[((prog[pc+1] << 8) | prog[pc]) + xr] = ac;
     pc+=2;
 }
 
 void _99staA(){
-    check_NZ();
     ram[((prog[pc+1] << 8) | prog[pc]) + yr] = ac;
     pc+=2;
 }
 
 void _81staZ(){
-    check_NZ();
     ram[ram[prog[pc] + xr]] = ac;
     pc++;
 }
 
 void _91staZ(){
-    check_NZ();
     ram[ram[prog[pc]] + yr] = ac;
     pc++;
 }
 
 
 void _86stxZ(){
-    check_NZ();
     ram[prog[pc]] = xr;
     pc++;
 }
 
 void _96stxZ(){
-    check_NZ();
     ram[prog[pc] + yr] = xr;
     pc++;
 }
 
 void _8EstxA(){
-    check_NZ();
     ram[(prog[pc+1] << 8) | prog[pc]] = xr;
     pc+=2;
 }
 
 void _84styZ(){
-    check_NZ();
     ram[prog[pc]] = yr;
     pc++;
 }
 
 void _94styZ(){
-    check_NZ();
     ram[prog[pc] + xr] = yr;
     pc++;
 }
 
 void _8CstyA(){
-    check_NZ();
     ram[(prog[pc+1] << 8) | prog[pc]] = yr;
     pc+=2;
 }
 
 void _AAtaxM(){
-    check_NZ();
     xr = ac;
+    check_NZ();
 }
 
 void _A8tayM(){
-    check_NZ();
     yr = ac;
+    check_NZ();
 }
 
 void _BAtsxM(){
-    check_NZ();
     sp = xr;
+    check_NZ();
 }
 
 void _8AtxaM(){
-    check_NZ();
     ac = xr;
+    check_NZ();
 }
 
 void _9AtxsM(){
-    check_NZ();
     sp = xr;
+    check_NZ();
 }
 
 void _98tyaM(){
-    check_NZ();
     ac = yr;
+    check_NZ();
 }
 
 /*ILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETC
@@ -1296,7 +1282,12 @@ FILE* testFile;
 
 
 int main(){
+
      fopen_s(&testFile,"C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\nestest.nes", "rb");
+     if (!fopen_s) {
+         printf("\nI CANt HAS TEST FILE ?!!!1!11 >>:(\n");
+         exit(1);
+     }
      uint32_t i = 0;
      uint8_t tmp;
      uint32_t orgInRam = 0xC000;
@@ -1324,6 +1315,8 @@ int main(){
    }
   
    tcpu.join();
+   printf("\n VAL @ 02h:%X", ram[0xFF02]);
+   printf("\n VAL @ 03h:%X", ram[0xFF03]);
    
     return 0;
 }

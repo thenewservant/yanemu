@@ -16,7 +16,8 @@
 #define PAL_CPU_CLOCK_DIVIDER 16
 #define NTSC_CPU_CLOCK_DIVIDER 12
 #define NOP (void)0
-
+#define S 0x00
+#define STACK_END 0x100
 
 #define N_FLAG 0b10000000
 #define V_FLAG 0b01000000
@@ -27,7 +28,7 @@
 #define Z_FLAG 0b00000010
 #define C_FLAG 0b00000001
 
-#define SR_RST 0b00110100 // IGNORED(_), B and INTERRUPT are set to 1
+#define SR_RST 0b00100100 // IGNORED(_), B and INTERRUPT are set to 1
 
 extern uint8_t* ram;
 extern uint8_t caca;
