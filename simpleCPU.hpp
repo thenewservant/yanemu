@@ -30,11 +30,13 @@
 
 #define SR_RST 0b00100100 // IGNORED(_), B and INTERRUPT are set to 1
 
-extern uint8_t* ram;
-extern uint8_t caca;
+
 
 typedef struct timespec tstime;
 
+enum LAST_REG_ASS { AC, XR, YR }; // ensure check_NZ() updates N and Z accordingly to the last registers assigned
+extern uint8_t* ram;
+extern uint8_t caca;
 static const uint8_t Cycles[256] = {
   7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
   2,5,2,8,4,4,6,6,2,4,2,7,5,5,7,7,
@@ -53,5 +55,3 @@ static const uint8_t Cycles[256] = {
   2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
   2,5,2,8,4,4,6,6,2,4,2,7,5,5,7,7
 };
-
-void insertAt(uint8_t* mem, uint64_t at, uint8_t* src, uint32_t length);
