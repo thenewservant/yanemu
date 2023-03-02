@@ -29,8 +29,7 @@
 #define C_FLAG 0b00000001
 
 #define SR_RST 0b00100100 // IGNORED(_), B and INTERRUPT are set to 1
-
-
+#define RELATIVE_BRANCH_CORE ((prog[pc] & N_FLAG) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc])
 
 typedef struct timespec tstime;
 
