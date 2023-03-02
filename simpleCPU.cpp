@@ -10,11 +10,6 @@ uint8_t* ram = (uint8_t*)calloc((1 << 16), sizeof(uint8_t));
 uint8_t* prog = ram;
 uint8_t caca = 0xDD;
 
-//uint16_t prog2[] = {
-///   0x78, 0xd8, 0xa9, 0x10, 0x8d, 0x00, 0x20, 0xa2, 0xff, 0x9a, 0xad, 0x02, 0x20, 0x10, 0xfb, 0xad, 0x02, 0x20, 0x10, 0xfb, 0xa0, 0xfe, 0xa2, 0x05, 0xbd, 0xd7, 0x07, 0xc9, 0x0a, 0xb0, 0x0c, 0xca, 0x10, 0xf6, 0xad, 0xff, 0x07, 0xc9, 0xa5, 0xd0, 0x02, 0xa0, 0xd6, 0x20, 0xcc, 0x90, 0x8d, 0x11, 0x40, 0x8d, 0x70, 0x07, 0xa9, 0xa5, 0x8d, 0xff, 0x07, 0x8d, 0xa7, 0x07, 0xa9, 0x0f, 0x8d, 0x15, 0x40, 0xa9, 0x06, 0x8d, 0x01, 0x20, 0x20, 0x20, 0x82, 0x20, 0x19, 0x8e, 0xee, 0x74, 0x07, 0xad, 0x78, 0x07, 0x09, 0x80, 0x20, 0xed, 0x8e, 0x4c, 0x57, 0x80, 0x01, 0xa4, 0xc8, 0xec, 0x10, 0x00, 0x41, 0x41, 0x4c, 0x34, 0x3c, 0x44, 0x54, 0x68, 0x7c, 0xa8, 0xbf, 0xde, 0xef, 0x03, 0x8c, 0x8c, 0x8c, 0x8d, 0x03, 0x03, 0x03, 0x8d, 0x8d, 0x8d, 0x8d, 0x8d, 0x8d, 0x8d, 0x8d, 0x8d, 0x8d, 0x8d, 0x00, 0x40, 0xad, 0x78, 0x07, 0x29, 0x7f, 0x8d, 0x78, 0x07, 0x29, 0x7e, 0x8d, 0x00, 0x20, 0xad, 0x79, 0x07, 0x29, 0xe6, 0xac, 0x74, 0x07, 0xd0, 0x05, 0xad, 0x79, 0x07, 0x09, 0x1e, 0x8d, 0x79, 0x07, 0x29, 0xe7, 0x8d, 0x01, 0x20, 0xae, 0x02, 0x20, 0xa9, 0x00, 0x20, 0xe6, 0x8e, 0x8d, 0x03, 0x20, 0xa9, 0x02, 0x8d, 0x14, 0x40, 0xae, 0x73, 0x07, 0xbd, 0x5a, 0x80, 0x85, 0x00, 0xbd, 0x6d, 0x80, 0x85, 0x01, 0x20, 0xdd, 0x8e, 0xa0, 0x00, 0xae, 0x73, 0x07, 0xe0, 0x06, 0xd0, 0x01, 0xc8
-   // , 0xDEAD};
-
-//registers_t reg = (registers_t) calloc(1,sizeof(registers_));
 
 uint16_t bigEndianTmp; // uint16_t used to process absolute adresses
 
@@ -436,8 +431,8 @@ void _4CjmpA() {
 }
 
 void _6CjmpN() {
-	bigEndianTmp = prog[pc] | prog[pc + 1] << 8;
-	pc = ram[bigEndianTmp] | ram[bigEndianTmp + 1] << 8;
+	bigEndianTmp = prog[pc] | (prog[pc + 1] << 8);
+	pc = ram[bigEndianTmp] | (ram[bigEndianTmp + 1] << 8);
 }
 
 void _20jsrA() {
@@ -974,15 +969,8 @@ void _98tyaM() {
 	check_NZ(ac);
 }
 
-/*ILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETC
+/*ILLEGAL ETCILLEGAL 
 
-ILLEGAL ETC
-
-
-
-ILLEGAL ETC
-
-ILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETCILLEGAL ETC
 
 */
 void _02jam() { //freezes the CPU
@@ -1086,112 +1074,50 @@ void _3FrlaA() {
 void _3BrlaA() {
 	NOP;
 }
-
-void _1AnopM() { NOP; }
-
-void _3AnopM() { NOP; }
-
-void _5AnopM() { NOP; }
-
-void _7AnopM() { NOP; }
-
-void _DAnopM() { NOP; }
-
-void _FAnopM() { NOP; }
-
-void _80nopI() { NOP; pc++; }
-
-void _82nopI() { NOP; pc++; }
-
-void _89nopI() { NOP; pc++; }
-
-void _C2nopI() { NOP; pc++; }
-
-void _E2nopI() { NOP; pc++; }
-
-
-void _04nopZ() { NOP; pc++; }
-
-void _44nopZ() { NOP; pc++; }
-
-void _64nopZ() { NOP; pc++; }
-
-void _14nopZ() { NOP; pc++; }
-
-void _34nopZ() { NOP; pc++; }
-
-void _54nopZ() { NOP; pc++; }
-
-void _74nopZ() { NOP; pc++; }
-
-void _D4nopZ() { NOP; pc++; }
-
-void _F4nopZ() { NOP; pc++; }
-
-
-void _0CnopA() { NOP; pc += 2; }
-
-void _1CnopA() { NOP; pc += 2; }
-
-void _3CnopA() { NOP; pc += 2; }
-
-void _5CnopA() { NOP; pc += 2; }
-
-void _7CnopA() { NOP; pc += 2; }
-
-void _DCnopA() { NOP; pc += 2; }
-
-void _FCnopA() { NOP; pc += 2; }
-
+//NOPS
 
 void _EAnopM() { NOP; }
 
-/*
-void _90bccR() {
-	pc += ((sr & C_FLAG) == 0) ? RELATIVE_BRANCH_CORE : 0;
-	pc++;
-}
+void _80nopI() { NOP; pc++; }
 
-void _B0bcsR() {
-	pc += ((sr & C_FLAG)) ? RELATIVE_BRANCH_CORE : 0;
-	pc++;
-}
-*/
+void _04nopZ() { NOP; pc++; }
+
+void _0CnopA() { NOP; pc += 2; }
+
 
 void (*opCodePtr[])() = { _00brk_, _01oraN, _02jam, E, _04nopZ, _05oraZ, _06aslZ, _07sloZ,
 						_08phpM, _09oraI, _0Aasl_, _0BancI, _0CnopA, _0DoraA, _0EaslA, _0FsloA,
-						_10bplR, _11oraN, E, E, _14nopZ, _15oraZ, _16aslZ, E,
-						_18clcM, _19oraA, _1AnopM, E, _1CnopA, _1DoraA, _1EaslA, E,
+						_10bplR, _11oraN, E, E, _04nopZ, _15oraZ, _16aslZ, E,
+						_18clcM, _19oraA, _EAnopM, E, _0CnopA, _1DoraA, _1EaslA, E,
 						_20jsrA, _21andN, E, E, _24bitZ, _25andZ,
 						_26rolZ, _27rlaZ, _28plpM, _29andI, _2ArolC, E, _2CbitA, _2DandA,
-						_2ErolA, _2FrlaA, _30bmiR, _31andN, E, E, _34nopZ, _35andZ,
-						_36rolZ, _37rlaZ, _38secM, _39andA, _3AnopM, _3BrlaA, _3CnopA, _3DandA,
-						_3ErolA, _3FrlaA, _40rtiM, _41eorN, E, E, _44nopZ, _45eorZ, _46lsrZ,
+						_2ErolA, _2FrlaA, _30bmiR, _31andN, E, E, _04nopZ, _35andZ,
+						_36rolZ, _37rlaZ, _38secM, _39andA, _EAnopM, _3BrlaA, _0CnopA, _3DandA,
+						_3ErolA, _3FrlaA, _40rtiM, _41eorN, E, E, _04nopZ, _45eorZ, _46lsrZ,
 						E, _48phaM, _49eorI, _4AlsrC, E, _4CjmpA, _4DeorA, _4ElsrA,
-						E, _50bvcR, _51eorN, E, E, _54nopZ, _55eorZ, _56lsrZ,
-						E, _58cliM, _59eorA, _5AnopM, E, _5CnopA, _5DeorA, _5ElsrA,
-						E, _60rtsM, _61adcN, E, E, _64nopZ, _65adcZ, _66rorZ,
+						E, _50bvcR, _51eorN, E, E, _04nopZ, _55eorZ, _56lsrZ,
+						E, _58cliM, _59eorA, _EAnopM, E, _0CnopA, _5DeorA, _5ElsrA,
+						E, _60rtsM, _61adcN, E, E, _04nopZ, _65adcZ, _66rorZ,
 						E, _68plaM, _69adcI, _6ArorC, E, _6CjmpN, _6DadcA, _6ErorA,
-						E, _70bvsR, _71adcN, E, E, _74nopZ, _75adcZ, _76rorZ,
-						E, _78seiM, _79adcA, _7AnopM, E, _7CnopA, _7DadcA, _7ErorA,
-						E, _80nopI, _81staZ, _82nopI, E, _84styZ, _85staZ, _86stxZ,
-						E, _88deyM, _89nopI, _8AtxaM, E, _8CstyA, _8DstaA, _8EstxA,
+						E, _70bvsR, _71adcN, E, E, _04nopZ, _75adcZ, _76rorZ,
+						E, _78seiM, _79adcA, _EAnopM, E, _0CnopA, _7DadcA, _7ErorA,
+						E, _80nopI, _81staZ, _80nopI, E, _84styZ, _85staZ, _86stxZ,
+						E, _88deyM, _80nopI, _8AtxaM, E, _8CstyA, _8DstaA, _8EstxA,
 						E, _90bccR, _91staZ, E, E, _94styZ, _95staZ, _96stxZ,
 						E, _98tyaM, _99staA, _9AtxsM, E, E, _9DstaA, E,
 						E, _A0ldyI, _A1ldaN, _A2ldxI, E, _A4ldyZ, _A5ldaZ, _A6ldxZ,
 						E, _A8tayM, _A9ldaI, _AAtaxM, E, _ACldyA, _ADldaA, _AEldxA,
 						E, _B0bcsR, _B1ldaN, E, E, _B4ldyZ, _B5ldaZ, _B6ldxZ,
 						E, _B8clvM, _B9ldaA, _BAtsxM, E, _BCldyA, _BDldaA, _BEldxA,
-						E, _C0cpyI, _C1cmpN, _C2nopI, E, _C4cpyZ, _C5cmpZ, _C6decZ,
+						E, _C0cpyI, _C1cmpN, _80nopI, E, _C4cpyZ, _C5cmpZ, _C6decZ,
 						_C7dcpZ, _C8inyM, _C9cmpI, _CAdexM, E, _CCcpyA, _CDcmpA, _CEdecA,
-						E, _D0bneR, _D1cmpN, E, E, _D4nopZ, _D5cmpZ, _D6dexZ,
-						_D7dcpZ, _D8cldM, _D9cmpA, _DAnopM, E, _DCnopA, _DDcmpA, E,
-						E, _E0cpxI, _E1sbcN, _E2nopI, E, _E4cpxZ, _E5sbcZ, _E6incZ,
+						E, _D0bneR, _D1cmpN, E, E, _04nopZ, _D5cmpZ, _D6dexZ,
+						_D7dcpZ, _D8cldM, _D9cmpA, _EAnopM, E, _0CnopA, _DDcmpA, E,
+						E, _E0cpxI, _E1sbcN, _80nopI, E, _E4cpxZ, _E5sbcZ, _E6incZ,
 						E, _E8inxM, _E9sbcI, _EAnopM, _E9sbcI, _ECcpxA, _EDsbcA, _EEincA,
-						E, _F0beqR, _F1sbcN, E, E, _F4nopZ, _F5sbcZ, _F6incZ,
-						E, _F8sedM, _F9sbcA, _FAnopM, E, _FCnopA, _FDsbcA, E, E
+						E, _F0beqR, _F1sbcN, E, E, _04nopZ, _F5sbcZ, _F6incZ,
+						E, _F8sedM, _F9sbcA, _EAnopM, E, _0CnopA, _FDsbcA, E, E
 };
-
 
 uint8_t nums = 0;
 uint64_t loops = 0;
@@ -1223,15 +1149,14 @@ private:
 	uint8_t* mem;
 	uint8_t* prog;
 	uint32_t counter; // how many instr. executed so far?
+
 public:
 	Cpu(uint8_t* ram, uint8_t* pr) {
-
 		mem = ram;
 		prog = pr;
 	}
 
 	void exec(uint8_t* prgm) {
-
 		opCodePtr[prgm[(pc)++]]();
 	}
 
@@ -1244,7 +1169,6 @@ public:
 
 			printf("\n%5d:%X:", counter, prog[pc]); afficher(); exec(prog);
 		}
-
 		printf("\nCPU jammed at pc = $%X", pc - 1);
 		//nums += 1;
 	}
@@ -1287,8 +1211,6 @@ void cpuf() {
 uint8_t* testMem = (uint8_t*)calloc((1 << 16), sizeof(uint8_t));
 FILE* testFile;
 
-
-
 int main() {
 
 	fopen_s(&testFile, "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\nestest.nes", "rb");
@@ -1323,8 +1245,6 @@ int main() {
 	}
 
 	tcpu.join();
-	printf("\n VAL @ 02h:%X", ram[0xFF02]);
-	printf("\n VAL @ 03h:%X", ram[0xFF03]);
 
 	return 0;
 }
