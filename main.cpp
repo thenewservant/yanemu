@@ -1,72 +1,61 @@
+//#include "simpleCPU.hpp"
+#include <stdio.h>
+#include <SDL.h>
 #include <cstdlib>
-#include <cstdio>
-#include <cstdint>
+#define WINDOW_WIDTH 600
+const int SCREEN_WIDTH = 256;
+const int SCREEN_HEIGHT = 240;
 
-using namespace std;
+int main(int argc, char* argv[]) {
 
-class Rom{// basic for just NROM support
-    private:
-        uint8_t mapperType;
-        uint8_t prgRomSize; // in 16kB units
-        uint8_t chrRomSize; // in 8kB units
-        uint8_t* prgRom;
-        uint8_t* chrRom;
-        
-    public: 
-    //constructor is 
-        Rom(FILE *romFile){
-            if (romFile == NULL){
-                printf("Error: ROM file not found");
-                exit(1);
+    // Initialize SDL
+    if (SDL_Init(SDL_INIT_VIDEO) < 0) {
+        printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
+        return 1;
+    }
+
+    // Create SDL window and renderer
+    SDL_Window* window = SDL_CreateWindow("Checkers", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH, SCREEN_HEIGHT, SDL_WINDOW_SHOWN);
+    SDL_Renderer* renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+
+    // Create SDL texture
+    SDL_Texture* texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+    // Create pixel buffer
+    Uint32* pixels = (Uint32*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint32));
+
+    // Fill pixel buffer with red and black checkers
+    for (int y = 0; y < SCREEN_HEIGHT; y++) {
+        for (int x = 0; x < SCREEN_WIDTH; x++) {
+            int index = y * SCREEN_WIDTH + x;
+            if ((x / 32 + y / 32) % 2 == 0) {
+                pixels[index] = 0xff000000; // black
             }
-            uint8_t header[16];
-        
-            fread(header, 1, 16, romFile);
-            if (header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1A){
-                printf("Error: ROM file is not a valid NES ROM");
-                exit(1);
+            else {
+                pixels[index] = 0xffff0000; // red
             }
-            mapperType = ((header[6] & 0xF0)>> 4) | (header[7] & 0xF0);
-            prgRomSize = header[4];
-            chrRomSize = header[5];
-            prgRom = (uint8_t*)malloc(prgRomSize * 0x4000);
-            chrRom = (uint8_t*)malloc(chrRomSize * 0x2000);
-            fread(prgRom, 1, prgRomSize * 0x4000, romFile);
-            fread(chrRom, 1, chrRomSize * 0x2000, romFile);
         }
-
-        void printInfo(){
-            printf("Mapper type: %d \n", mapperType);
-            printf("PRG ROM size: %d \n", prgRomSize);
-        }
-        
-        uint8_t readPrgRom(uint16_t addr){
-            return prgRom[addr];
-        }
-
-        uint8_t readChrRom(uint16_t addr){
-            return chrRom[addr];
-        }
-        uint8_t getChrRomSize(){
-            return chrRomSize;
-        }
-        ~Rom(){
-            free(prgRom);
-            free(chrRom);
-        }
-};
-
-int main(){
-    FILE *romFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\smbSale.nes", "rb");
-    Rom rom(romFile);
-    rom.printInfo();
-
-    for (int i = 0; i < rom.getChrRomSize()*0x2000; ++i){
-        if (i % 8 == 0)
-            printf("\n");
-        if (i % 64 == 0)
-            printf("\n");
-        printf("%X ", rom.readChrRom(i));
     }
     
+    // Update texture with pixel buffer
+    SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
+    
+    // Render texture and present on screen
+    SDL_RenderCopy(renderer, texture, NULL, NULL);
+    SDL_RenderPresent(renderer);
+    SDL_Event event;
+    while (true) {
+        if (SDL_WaitEvent(&event) != 0) {
+        }
+    }
+    // Free memory
+    free(pixels);
+
+    // Cleanup SDL
+    SDL_DestroyTexture(texture);
+    SDL_DestroyRenderer(renderer);
+    SDL_DestroyWindow(window);
+    SDL_Quit();
+
+    return 0;
 }

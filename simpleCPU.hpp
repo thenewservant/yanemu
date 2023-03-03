@@ -2,14 +2,17 @@
 #include <stdint.h>
 #include <iostream>
 #include <cstdio>
+
 #include <cstdlib>
 //import chrono time libs
 #include <fstream>
 #include <chrono>
 #include <thread>
 #include <time.h>
-#include <windows.h>
-#include "sound.h"
+#ifdef _WIN32
+	#include <windows.h>
+	#include "sound.h"
+#endif
 
 #define BE_LE_U16(u16) (u16 & 0xff00) >> 8 | (u16 & 0x00ff) << 8
 #define E NULL
@@ -54,3 +57,5 @@ static const uint8_t Cycles[256] = {
   2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
   2,5,2,8,4,4,6,6,2,4,2,7,5,5,7,7
 };
+
+int mainCPU();

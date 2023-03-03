@@ -34,5 +34,8 @@
 *.nes
 *.bin
 *.prg
+*.asm
+*.ASM
+lib
 yanemu
 tests

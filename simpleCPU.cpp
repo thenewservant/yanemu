@@ -59,7 +59,7 @@ void _65adcZ() { //seems OK
 }
 
 void _75adcZ() {
-	termB = ram[prog[pc] + xr];
+	termB = ram[(uint8_t)(prog[pc] + xr)];
 	_adc();
 	pc++;
 }
@@ -70,13 +70,13 @@ void _6DadcA() {
 	pc += 2;
 }
 void _7DadcA() {
-	termB = ram[((prog[pc + 1] << 8) | prog[pc]) + xr];
+	termB = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
 	_adc();
 	pc += 2;
 }
 
 void _79adcA() {
-	termB = ram[ram[((prog[pc + 1] << 8) | prog[pc])]];
+	termB = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)];
 	_adc();
 	pc += 2;
 }
@@ -112,7 +112,7 @@ void _25andZ() {
 }
 
 void _35andZ() {
-	ac &= ram[prog[pc] + xr];
+	ac &= ram[(uint8_t)(prog[pc] + xr)];
 	check_NZ(ac);
 	pc++;
 }
@@ -124,13 +124,13 @@ void _2DandA() {
 }
 
 void _3DandA() {
-	ac &= ram[((prog[pc + 1] << 8) | prog[pc]) + xr];
+	ac &= ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
 	check_NZ(ac);
 	pc += 2;
 }
 
 void _39andA() {
-	ac &= ram[((prog[pc + 1] << 8) | prog[pc]) + yr];
+	ac &= ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)];
 	check_NZ(ac);
 	pc += 2;
 }
@@ -238,7 +238,7 @@ void _C5cmpZ() {
 }
 
 void _D5cmpZ() {
-	m = ram[prog[pc] + xr];
+	m = ram[(uint8_t)(prog[pc] + xr)];
 	_cmp();
 	pc++;
 }
@@ -250,13 +250,13 @@ void _CDcmpA() {
 }
 
 void _DDcmpA() {
-	m = ram[((prog[pc + 1] << 8) | prog[pc]) + xr];
+	m = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
 	_cmp();
 	pc += 2;
 }
 
 void _D9cmpA() {
-	m = ram[((prog[pc + 1] << 8) | prog[pc]) + yr];
+	m = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)];
 	_cmp();
 	pc += 2;
 }
@@ -326,7 +326,7 @@ void _C6decZ() {
 }
 
 void _D6dexZ() {
-	check_NZ(--ram[prog[pc] + xr]);
+	check_NZ(--ram[(uint8_t)(prog[pc] + xr)]);
 	pc++;
 }
 
@@ -336,7 +336,7 @@ void _CEdecA() {
 }
 
 void _DEdexA() {
-	check_NZ(--ram[((prog[pc + 1] << 8) | prog[pc]) + xr]);
+	check_NZ(--ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)]);
 	pc += 2;
 }
 
@@ -362,7 +362,7 @@ void _45eorZ() {
 }
 
 void _55eorZ() {
-	ac ^= ram[prog[pc] + xr];
+	ac ^= ram[(uint8_t)(prog[pc] + xr)];
 	check_NZ(ac);
 	pc++;
 }
@@ -374,13 +374,13 @@ void _4DeorA() {
 }
 
 void _5DeorA() {
-	ac ^= ram[((prog[pc + 1] << 8) | prog[pc]) + xr];
+	ac ^= ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
 	check_NZ(ac);
 	pc += 2;
 }
 
 void _59eorA() {
-	ac ^= ram[((prog[pc + 1] << 8) | prog[pc]) + yr];
+	ac ^= ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)];
 	check_NZ(ac);
 	pc += 2;
 }
@@ -403,7 +403,7 @@ void _E6incZ() {
 }
 
 void _F6incZ() {
-	check_NZ(++ram[prog[pc] + xr]);
+	check_NZ(++ram[(uint8_t)(prog[pc] + xr)]);
 	pc++;
 }
 
@@ -413,8 +413,8 @@ void _EEincA() {
 }
 
 void _FEincA() {
+	check_NZ(++ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)]);
 	pc += 2;
-	check_NZ(++ram[((prog[pc + 1] << 8) | prog[pc]) + xr]);
 }
 
 void _E8inxM() {
@@ -432,7 +432,8 @@ void _4CjmpA() {
 
 void _6CjmpN() {
 	bigEndianTmp = prog[pc] | (prog[pc + 1] << 8);
-	pc = ram[bigEndianTmp] | (ram[bigEndianTmp + 1] << 8);
+	// Here comes the famous Indirect Jump bug implementation...
+	pc = ram[bigEndianTmp] | (ram[(bigEndianTmp & 0xFF00) | (bigEndianTmp + 1) & 0x00FF] << 8);
 }
 
 void _20jsrA() {
@@ -456,7 +457,7 @@ void _A5ldaZ() {
 }
 
 void _B5ldaZ() {
-	ac = ram[prog[pc] + xr];
+	ac = ram[(uint8_t)(prog[pc] + xr)];
 	pc++;
 	check_NZ(ac);
 }
@@ -468,13 +469,13 @@ void _ADldaA() {
 }
 
 void _BDldaA() {
-	ac = ram[((prog[pc + 1] << 8) | prog[pc]) + xr];
+	ac = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
 	pc += 2;
 	check_NZ(ac);
 }
 
 void _B9ldaA() {
-	ac = ram[((prog[pc + 1] << 8) | prog[pc]) + yr];
+	ac = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)];
 	pc += 2;
 	check_NZ(ac);
 }
@@ -506,7 +507,7 @@ void _A6ldxZ() {
 }
 
 void _B6ldxZ() {
-	xr = ram[prog[pc] + yr];
+	xr = ram[(uint8_t)(prog[pc] + yr)];
 	pc++;
 	check_NZ(xr);
 }
@@ -518,7 +519,7 @@ void _AEldxA() {
 }
 
 void _BEldxA() {
-	xr = ram[((prog[pc + 1] << 8) | prog[pc]) + yr];
+	xr = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)];
 	pc += 2;
 	check_NZ(xr);
 }
@@ -537,7 +538,7 @@ void _A4ldyZ() {
 }
 
 void _B4ldyZ() {
-	yr = ram[prog[pc] + xr];
+	yr = ram[(uint8_t)(prog[pc] + xr)];
 	pc++;
 	check_NZ(yr);
 }
@@ -549,7 +550,7 @@ void _ACldyA() {
 }
 
 void _BCldyA() {
-	yr = ram[((prog[pc + 1] << 8) | prog[pc]) + xr];
+	yr = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
 	pc += 2;
 	check_NZ(yr);
 }
@@ -570,9 +571,9 @@ void _46lsrZ() {
 
 void _56lsrZ() {
 	sr = sr & ~N_FLAG & ~C_FLAG | ac & C_FLAG;
-	ram[prog[pc] + xr] >>= 1;
+	ram[(uint8_t)(prog[pc] + xr)] >>= 1;
 	pc++;
-	check_NZ(ram[prog[pc] + xr]);
+	check_NZ(ram[(uint8_t)(prog[pc] + xr)]);
 }
 
 void _4ElsrA() {
@@ -584,8 +585,8 @@ void _4ElsrA() {
 
 void _5ElsrA() {
 	sr = sr & ~N_FLAG & ~C_FLAG | ac & C_FLAG;
-	ram[((prog[pc + 1] << 8) | prog[pc]) + xr] >>= 1;
-	check_NZ(ram[((prog[pc + 1] << 8) | prog[pc]) + xr]);
+	ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] >>= 1;
+	check_NZ(ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)]);
 	pc += 2;
 }
 
@@ -621,19 +622,19 @@ void _11oraN() {
 }
 
 void _15oraZ() {
-	ac |= ram[prog[pc] + xr];
+	ac |= ram[(uint8_t)(prog[pc] + xr)];
 	pc++;
 	check_NZ(ac);
 }
 
 void _19oraA() {
-	ac |= ram[((prog[pc + 1] << 8) | prog[pc]) + yr];
+	ac |= ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)];
 	pc += 2;
 	check_NZ(ac);
 }
 
 void _1DoraA() {
-	ac |= ram[((prog[pc + 1] << 8) | prog[pc]) + xr];
+	ac |= ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
 	pc += 2;
 	check_NZ(ac);
 }
@@ -655,8 +656,8 @@ void _06aslZ() { // one bit left shift, shifted out bit is preserved in carry
 
 void _16aslZ() {
 	sr = sr & ~C_FLAG | ((ram[(uint8_t)prog[pc] + xr] & N_FLAG) ? C_FLAG : 0);
-	ram[prog[pc] + xr] <<= 1;
-	check_NZ(ram[prog[pc] + xr]);
+	ram[(uint8_t)(prog[pc] + xr)] <<= 1;
+	check_NZ(ram[(uint8_t)(prog[pc] + xr)]);
 	pc++;
 }
 
@@ -669,9 +670,9 @@ void _0EaslA() {
 }
 
 void _1EaslA() {
-	sr = sr & ~C_FLAG | ((ram[((prog[pc + 1] << 8) | prog[pc]) + xr] & N_FLAG) ? C_FLAG : 0);
-	ram[((prog[pc + 1] << 8) | prog[pc]) + xr] <<= 1;
-	check_NZ(ram[((prog[pc + 1] << 8) | prog[pc]) + xr]);
+	sr = sr & ~C_FLAG | ((ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] & N_FLAG) ? C_FLAG : 0);
+	ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] <<= 1;
+	check_NZ(ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)]);
 	pc += 2;
 }
 
@@ -714,10 +715,10 @@ void _26rolZ() {
 }
 
 void _36rolZ() {
-	futureC = ram[prog[pc] + xr] & N_FLAG;
-	ram[prog[pc] + xr] = (ram[prog[pc] + xr] << 1) | sr & C_FLAG;
+	futureC = ram[(uint8_t)(prog[pc] + xr)] & N_FLAG;
+	ram[(uint8_t)(prog[pc] + xr)] = (ram[(uint8_t)(prog[pc] + xr)] << 1) | sr & C_FLAG;
 	sr = sr & ~C_FLAG | (futureC > 0);
-	check_NZ(ram[prog[pc] + xr]);
+	check_NZ(ram[(uint8_t)(prog[pc] + xr)]);
 	pc++;
 }
 
@@ -730,10 +731,10 @@ void _2ErolA() {
 }
 
 void _3ErolA() {
-	futureC = ram[((prog[pc + 1] << 8) | prog[pc]) + xr] & N_FLAG;
-	ram[((prog[pc + 1] << 8) | prog[pc]) + xr] = (ram[((prog[pc + 1] << 8) | prog[pc]) + xr] << 1) | sr & C_FLAG;
+	futureC = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] & N_FLAG;
+	ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] = (ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] << 1) | sr & C_FLAG;
 	sr = sr & ~C_FLAG | (futureC > 0);
-	check_NZ(ram[((prog[pc + 1] << 8) | prog[pc]) + xr]);
+	check_NZ(ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)]);
 	pc += 2;
 }
 
@@ -753,10 +754,10 @@ void _66rorZ() {
 }
 
 void _76rorZ() {
-	futureC = ram[prog[pc] + xr] & 1;
-	ram[prog[pc] + xr] = (ram[prog[pc] + xr] >> 1) | (sr & C_FLAG) << 7;
+	futureC = ram[(uint8_t)(prog[pc] + xr)] & 1;
+	ram[(uint8_t)(prog[pc] + xr)] = (ram[(uint8_t)(prog[pc] + xr)] >> 1) | (sr & C_FLAG) << 7;
 	sr = sr & ~C_FLAG | futureC;
-	check_NZ(ram[prog[pc] + xr]);
+	check_NZ(ram[(uint8_t)(prog[pc] + xr)]);
 	pc++;
 }
 
@@ -769,10 +770,10 @@ void _6ErorA() {
 }
 
 void _7ErorA() {
-	futureC = ram[((prog[pc + 1] << 8) | prog[pc]) + xr] & 1;
-	ram[((prog[pc + 1] << 8) | prog[pc]) + xr] = (ram[((prog[pc + 1] << 8) | prog[pc]) + xr] >> 1) | (sr & C_FLAG) << 7;
+	futureC = ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] & 1;
+	ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] = (ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] >> 1) | (sr & C_FLAG) << 7;
 	sr = sr & ~C_FLAG | futureC;
-	check_NZ(ram[((prog[pc + 1] << 8) | prog[pc]) + xr]);
+	check_NZ(ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)]);
 	pc += 2;
 }
 
@@ -821,7 +822,7 @@ void _E5sbcZ() {
 
 void _F5sbcZ() {
 	lastReg = AC;
-	termB = ~ram[prog[pc] + xr];
+	termB = ~ram[(uint8_t)(prog[pc] + xr)];
 	_adc();
 	pc++;
 }
@@ -835,14 +836,14 @@ void _EDsbcA() {
 
 void _FDsbcA() {
 	lastReg = AC;
-	termB = ~ram[((prog[pc + 1] << 8) | prog[pc]) + xr];
+	termB = ~ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
 	_adc();
 	pc += 2;
 }
 
 void _F9sbcA() {
 	lastReg = AC;
-	termB = ~ram[((prog[pc + 1] << 8) | prog[pc]) + yr];
+	termB = ~ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)];
 	_adc();
 	pc += 2;
 }
@@ -880,7 +881,7 @@ void _85staZ() {
 }
 
 void _95staZ() {
-	ram[prog[pc] + xr] = ac;
+	ram[(uint8_t)(prog[pc] + xr)] = ac;
 	pc++;
 }
 
@@ -890,12 +891,12 @@ void _8DstaA() {
 }
 
 void _9DstaA() {
-	ram[((prog[pc + 1] << 8) | prog[pc]) + xr] = ac;
+	ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)] = ac;
 	pc += 2;
 }
 
 void _99staA() {
-	ram[((prog[pc + 1] << 8) | prog[pc]) + yr] = ac;
+	ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)] = ac;
 	pc += 2;
 }
 
@@ -916,7 +917,7 @@ void _86stxZ() {
 }
 
 void _96stxZ() {
-	ram[prog[pc] + yr] = xr;
+	ram[(uint8_t)(prog[pc] + yr)] = xr;
 	pc++;
 }
 
@@ -931,7 +932,7 @@ void _84styZ() {
 }
 
 void _94styZ() {
-	ram[prog[pc] + xr] = yr;
+	ram[(uint8_t)(prog[pc] + xr)] = yr;
 	pc++;
 }
 
@@ -969,7 +970,7 @@ void _98tyaM() {
 	check_NZ(ac);
 }
 
-/*ILLEGAL ETCILLEGAL 
+/*ILLEGAL ETCILLEGAL
 
 
 */
@@ -1022,7 +1023,7 @@ void _C7dcpZ() {
 }
 
 void _D7dcpZ() {
-	ram[prog[pc] + xr] -= 1;
+	ram[(uint8_t)(prog[pc] + xr)] -= 1;
 	_D5cmpZ();
 	pc++;
 }
@@ -1112,11 +1113,11 @@ void (*opCodePtr[])() = { _00brk_, _01oraN, _02jam, E, _04nopZ, _05oraZ, _06aslZ
 						E, _C0cpyI, _C1cmpN, _80nopI, E, _C4cpyZ, _C5cmpZ, _C6decZ,
 						_C7dcpZ, _C8inyM, _C9cmpI, _CAdexM, E, _CCcpyA, _CDcmpA, _CEdecA,
 						E, _D0bneR, _D1cmpN, E, E, _04nopZ, _D5cmpZ, _D6dexZ,
-						_D7dcpZ, _D8cldM, _D9cmpA, _EAnopM, E, _0CnopA, _DDcmpA, E,
+						_D7dcpZ, _D8cldM, _D9cmpA, _EAnopM, E, _0CnopA, _DDcmpA, _DEdexA,
 						E, _E0cpxI, _E1sbcN, _80nopI, E, _E4cpxZ, _E5sbcZ, _E6incZ,
 						E, _E8inxM, _E9sbcI, _EAnopM, _E9sbcI, _ECcpxA, _EDsbcA, _EEincA,
 						E, _F0beqR, _F1sbcN, E, E, _04nopZ, _F5sbcZ, _F6incZ,
-						E, _F8sedM, _F9sbcA, _EAnopM, E, _0CnopA, _FDsbcA, E, E
+						E, _F8sedM, _F9sbcA, _EAnopM, E, _0CnopA, _FDsbcA, _FEincA, E
 };
 
 uint8_t nums = 0;
@@ -1211,7 +1212,7 @@ void cpuf() {
 uint8_t* testMem = (uint8_t*)calloc((1 << 16), sizeof(uint8_t));
 FILE* testFile;
 
-int main() {
+int mainCPU() {
 
 	fopen_s(&testFile, "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\nestest.nes", "rb");
 	if (!fopen_s) {
