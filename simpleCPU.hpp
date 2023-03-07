@@ -1,4 +1,5 @@
-
+#ifndef SIMPLE_CPU_H
+#define SIMPLE_CPU_H
 #include <stdint.h>
 #include <iostream>
 #include <cstdio>
@@ -10,8 +11,8 @@
 #include <thread>
 #include <time.h>
 #ifdef _WIN32
-	#include <windows.h>
-	#include "sound.h"
+#include <windows.h>
+#include "sound.h"
 #endif
 
 #define BE_LE_U16(u16) (u16 & 0xff00) >> 8 | (u16 & 0x00ff) << 8
@@ -31,14 +32,12 @@
 #define Z_FLAG 0b00000010
 #define C_FLAG 0b00000001
 
-#define SR_RST 0b00100100 // IGNORED(_), B and INTERRUPT are set to 1
+#define SR_RST 0b00110100 // IGNORED(_), B and INTERRUPT are set to 1
 #define RELATIVE_BRANCH_CORE ((prog[pc] & N_FLAG) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc])
 
-typedef struct timespec tstime;
-
-enum LAST_REG_ASS { AC, XR, YR }; // ensure check_NZ() updates N and Z accordingly to the last registers assigned
 extern uint8_t* ram;
-extern uint8_t caca;
+extern uint8_t* prgromm;
+extern uint8_t* chrrom;
 static const uint8_t Cycles[256] = {
   7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
   2,5,2,8,4,4,6,6,2,4,2,7,5,5,7,7,
@@ -57,5 +56,9 @@ static const uint8_t Cycles[256] = {
   2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
   2,5,2,8,4,4,6,6,2,4,2,7,5,5,7,7
 };
-
+typedef std::chrono::high_resolution_clock Time;
+typedef std::chrono::microseconds ms;
+typedef std::chrono::duration<float> fsec;
 int mainCPU();
+void _nmi();
+#endif

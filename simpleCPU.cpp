@@ -1,20 +1,17 @@
 #include "simpleCPU.hpp"
 
 uint16_t pc;
-uint8_t ac = 0, xr, yr, sr = SR_RST, sp = 0xFF;
+uint8_t ac = 0, xr, yr, sr = SR_RST, sp = 0xFD;
 
 bool jammed = false; // is the cpu jammed because of certain instructions?
 
 uint8_t* ram = (uint8_t*)calloc((1 << 16), sizeof(uint8_t));
-
+uint8_t* chrrom = (uint8_t*)malloc(0x2000 * sizeof(uint8_t));
 uint8_t* prog = ram;
-uint8_t caca = 0xDD;
-
 
 uint16_t bigEndianTmp; // uint16_t used to process absolute adresses
 
 using namespace std;
-
 /*
 	_ : indicates a 6502 operation
 	XX : opCode
@@ -36,6 +33,13 @@ void check_NZ(uint8_t obj) {
 inline void check_CV() {
 	sr = (aluTmp) > 0xff ? (sr | C_FLAG) : sr & ~C_FLAG;
 	sr = (sr & ~V_FLAG) | V_FLAG & (((ac ^ aluTmp) & (termB ^ aluTmp)) >> 1);
+}
+
+void _nmi() {
+	ram[STACK_END | sp--] = pc >> 8;
+	ram[STACK_END | sp--] = pc;
+	ram[STACK_END | sp--] = sr;
+	pc = (ram[0xFFFB] << 8) | ram[0xFFFA];
 }
 
 //adc core procedure -- termB is the operand as termA is always ACCUMULATOR
@@ -94,9 +98,12 @@ void _71adcN() {
 }
 
 void _00brk_() {
-	jammed = true;
-	NOP;
-	printf("BRK");
+	sr |= I_FLAG;
+	ram[STACK_END | sp--] = (pc + 2) >> 8;
+	ram[STACK_END | sp--] = (pc + 2);
+	ram[STACK_END | sp--] = sr;
+	pc = ram[0xFFFE] | (ram[0xFFFD] << 8);
+
 }
 
 void _29andI() {
@@ -789,7 +796,6 @@ void _60rtsM() {
 	sp += 2;
 }
 
-
 //SBCs
 /* Archaic
 uint8_t tmpCarry; // used for overflow
@@ -805,7 +811,7 @@ inline void _sbc() {
 */
 
 void _E9sbcI() { //seems OK!
-	lastReg = AC;
+
 	termB = ~prog[pc];// (N_FLAG & prog[pc]) ? (~prog[pc] + 1) : prog[pc];
 	//_sbc();
 	_adc();
@@ -813,7 +819,7 @@ void _E9sbcI() { //seems OK!
 }
 
 void _E5sbcZ() {
-	lastReg = AC;
+
 	termB = ~ram[prog[pc]];
 	_adc();
 	pc++;
@@ -821,42 +827,42 @@ void _E5sbcZ() {
 }
 
 void _F5sbcZ() {
-	lastReg = AC;
+
 	termB = ~ram[(uint8_t)(prog[pc] + xr)];
 	_adc();
 	pc++;
 }
 
 void _EDsbcA() {
-	lastReg = AC;
+
 	termB = ~ram[(prog[pc + 1] << 8) | prog[pc]];
 	_adc();
 	pc += 2;
 }
 
 void _FDsbcA() {
-	lastReg = AC;
+
 	termB = ~ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
 	_adc();
 	pc += 2;
 }
 
 void _F9sbcA() {
-	lastReg = AC;
+
 	termB = ~ram[(uint16_t)(((prog[pc + 1] << 8) | prog[pc]) + yr)];
 	_adc();
 	pc += 2;
 }
 
 void _E1sbcN() {
-	lastReg = AC;
+
 	termB = ~ram[ram[(uint8_t)(prog[pc] + xr)] | (ram[(uint8_t)(prog[pc] + xr + 1)] << 8)];
 	_adc();
 	pc++;
 }
 
 void _F1sbcN() {
-	lastReg = AC;
+
 	termB = ~ram[(uint16_t)((ram[prog[pc]] | (ram[(uint8_t)(prog[pc] + 1)] << 8)) + yr)];
 	_adc();
 	pc++;
@@ -970,15 +976,9 @@ void _98tyaM() {
 	check_NZ(ac);
 }
 
-/*ILLEGAL ETCILLEGAL
-
-
-*/
-void _02jam() { //freezes the CPU
+void _02jamM() { //freezes the CPU
 	jammed = true;
 }
-
-
 // ILLEGAL
 
 void _07sloZ() {
@@ -1086,64 +1086,132 @@ void _04nopZ() { NOP; pc++; }
 void _0CnopA() { NOP; pc += 2; }
 
 
-void (*opCodePtr[])() = { _00brk_, _01oraN, _02jam, E, _04nopZ, _05oraZ, _06aslZ, _07sloZ,
+
+void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, E, _04nopZ, _05oraZ, _06aslZ, _07sloZ,
 						_08phpM, _09oraI, _0Aasl_, _0BancI, _0CnopA, _0DoraA, _0EaslA, _0FsloA,
-						_10bplR, _11oraN, E, E, _04nopZ, _15oraZ, _16aslZ, E,
+						_10bplR, _11oraN, _02jamM, E, _04nopZ, _15oraZ, _16aslZ, E,
 						_18clcM, _19oraA, _EAnopM, E, _0CnopA, _1DoraA, _1EaslA, E,
-						_20jsrA, _21andN, E, E, _24bitZ, _25andZ,
+						_20jsrA, _21andN, _02jamM, E, _24bitZ, _25andZ,
 						_26rolZ, _27rlaZ, _28plpM, _29andI, _2ArolC, E, _2CbitA, _2DandA,
-						_2ErolA, _2FrlaA, _30bmiR, _31andN, E, E, _04nopZ, _35andZ,
+						_2ErolA, _2FrlaA, _30bmiR, _31andN, _02jamM, E, _04nopZ, _35andZ,
 						_36rolZ, _37rlaZ, _38secM, _39andA, _EAnopM, _3BrlaA, _0CnopA, _3DandA,
-						_3ErolA, _3FrlaA, _40rtiM, _41eorN, E, E, _04nopZ, _45eorZ, _46lsrZ,
+						_3ErolA, _3FrlaA, _40rtiM, _41eorN, _02jamM, E, _04nopZ, _45eorZ, _46lsrZ,
 						E, _48phaM, _49eorI, _4AlsrC, E, _4CjmpA, _4DeorA, _4ElsrA,
-						E, _50bvcR, _51eorN, E, E, _04nopZ, _55eorZ, _56lsrZ,
+						E, _50bvcR, _51eorN, _02jamM, E, _04nopZ, _55eorZ, _56lsrZ,
 						E, _58cliM, _59eorA, _EAnopM, E, _0CnopA, _5DeorA, _5ElsrA,
-						E, _60rtsM, _61adcN, E, E, _04nopZ, _65adcZ, _66rorZ,
+						E, _60rtsM, _61adcN, _02jamM, E, _04nopZ, _65adcZ, _66rorZ,
 						E, _68plaM, _69adcI, _6ArorC, E, _6CjmpN, _6DadcA, _6ErorA,
-						E, _70bvsR, _71adcN, E, E, _04nopZ, _75adcZ, _76rorZ,
+						E, _70bvsR, _71adcN, _02jamM, E, _04nopZ, _75adcZ, _76rorZ,
 						E, _78seiM, _79adcA, _EAnopM, E, _0CnopA, _7DadcA, _7ErorA,
 						E, _80nopI, _81staZ, _80nopI, E, _84styZ, _85staZ, _86stxZ,
 						E, _88deyM, _80nopI, _8AtxaM, E, _8CstyA, _8DstaA, _8EstxA,
-						E, _90bccR, _91staZ, E, E, _94styZ, _95staZ, _96stxZ,
+						E, _90bccR, _91staZ, _02jamM, E, _94styZ, _95staZ, _96stxZ,
 						E, _98tyaM, _99staA, _9AtxsM, E, E, _9DstaA, E,
 						E, _A0ldyI, _A1ldaN, _A2ldxI, E, _A4ldyZ, _A5ldaZ, _A6ldxZ,
 						E, _A8tayM, _A9ldaI, _AAtaxM, E, _ACldyA, _ADldaA, _AEldxA,
-						E, _B0bcsR, _B1ldaN, E, E, _B4ldyZ, _B5ldaZ, _B6ldxZ,
+						E, _B0bcsR, _B1ldaN, _02jamM, E, _B4ldyZ, _B5ldaZ, _B6ldxZ,
 						E, _B8clvM, _B9ldaA, _BAtsxM, E, _BCldyA, _BDldaA, _BEldxA,
 						E, _C0cpyI, _C1cmpN, _80nopI, E, _C4cpyZ, _C5cmpZ, _C6decZ,
 						_C7dcpZ, _C8inyM, _C9cmpI, _CAdexM, E, _CCcpyA, _CDcmpA, _CEdecA,
-						E, _D0bneR, _D1cmpN, E, E, _04nopZ, _D5cmpZ, _D6dexZ,
+						E, _D0bneR, _D1cmpN, _02jamM, E, _04nopZ, _D5cmpZ, _D6dexZ,
 						_D7dcpZ, _D8cldM, _D9cmpA, _EAnopM, E, _0CnopA, _DDcmpA, _DEdexA,
 						E, _E0cpxI, _E1sbcN, _80nopI, E, _E4cpxZ, _E5sbcZ, _E6incZ,
 						E, _E8inxM, _E9sbcI, _EAnopM, _E9sbcI, _ECcpxA, _EDsbcA, _EEincA,
-						E, _F0beqR, _F1sbcN, E, E, _04nopZ, _F5sbcZ, _F6incZ,
+						E, _F0beqR, _F1sbcN, _02jamM, E, _04nopZ, _F5sbcZ, _F6incZ,
 						E, _F8sedM, _F9sbcA, _EAnopM, E, _0CnopA, _FDsbcA, _FEincA, E
 };
 
 uint8_t nums = 0;
 uint64_t loops = 0;
-tstime tt = { 10,10 };
 
-BOOLEAN nanosleep(LONGLONG ns) {
-	/* Declarations */
-	HANDLE timer;	/* Timer handle */
-	LARGE_INTEGER li;	/* Time defintion */
-	/* Create timer */
-	if (!(timer = CreateWaitableTimer(NULL, TRUE, NULL)))
-		return FALSE;
-	/* Set timer properties */
-	li.QuadPart = -ns;
-	if (!SetWaitableTimer(timer, &li, 0, NULL, NULL, FALSE)) {
-		CloseHandle(timer);
-		return FALSE;
+uint8_t* prgromm = (uint8_t*)malloc(0xFFFF * sizeof(uint8_t));
+
+
+class Rom {// basic for just NROM support
+private:
+	uint8_t mapperType;
+	uint8_t prgRomSize; // in 16kB units
+	uint8_t chrRomSize; // in 8kB units
+	uint8_t* prgRom;
+	uint8_t* chrRom;
+	uint8_t resetPosition;
+public:
+	//constructor is 
+	Rom(FILE* romFile) {
+		if (romFile == NULL) {
+			printf("Error: ROM file not found");
+			exit(1);
+		}
+		uint8_t header[16];
+
+		fread(header, 1, 16, romFile);
+		if (header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1A) {
+			printf("Error: ROM file is not a valid NES ROM");
+			exit(1);
+		}
+
+		mapperType = ((header[6] & 0xF0)) | ((header[7] & 0xF0) << 4);
+		prgRomSize = header[4];
+		chrRomSize = header[5];
+		prgRom = (uint8_t*)malloc(prgRomSize * 0x4000);
+		chrRom = (uint8_t*)malloc(chrRomSize * 0x2000);
+		fread(prgRom, 1, prgRomSize * 0x4000, romFile);
+		fread(chrRom, 1, chrRomSize * 0x2000, romFile);
+
+		if (mapperType == 0) {
+			prgromm = prgRom;
+			mapNROM();
+		}
+		else {
+			printf("Error: Only NROM (mapper 000) supported yet!");
+		}
 	}
-	/* Start & wait for timer */
-	WaitForSingleObject(timer, INFINITE);
-	/* Clean resources */
-	CloseHandle(timer);
-	/* Slept without problems */
-	return TRUE;
-}
+
+	void mapNROM() {
+
+		printf("%X", prgRomSize);
+		uint16_t i = 0;
+		if (prgRomSize == 1) {
+			do {
+				ram[i + 0x8000] = prgRom[i];
+				i++;
+			} while (((i + 0x8000 <= 0xBFFF)));
+			i = 0;
+			do {
+				ram[i + 0xC000] = prgRom[i];
+				i++;
+			} while (((i + 0xC000 <= 0xFFFF)));
+		}
+		else {
+			do {
+				ram[i + 0x8000] = prgRom[i];
+				i++;
+			} while (((i + 0x8000 <= 0xFFFF)));
+		}
+	}
+
+	void printInfo() {
+		printf("Mapper type: %d \n", mapperType);
+		printf("PRG ROM size: %d \n", prgRomSize);
+	}
+	uint8_t* getChrRom() {
+		return chrRom;
+	}
+	uint8_t readPrgRom(uint16_t addr) {
+		return prgRom[addr];
+	}
+
+	uint8_t readChrRom(uint16_t addr) {
+		return chrRom[addr];
+	}
+	uint8_t getChrRomSize() {
+		return chrRomSize;
+	}
+	~Rom() {
+		free(prgRom);
+		free(chrRom);
+	}
+};
 
 class Cpu {
 private:
@@ -1158,17 +1226,31 @@ public:
 	}
 
 	void exec(uint8_t* prgm) {
+		//if (ram[0x2002] & N_FLAG & ram[0x2000]) _nmi();
 		opCodePtr[prgm[(pc)++]]();
 	}
 
 	void run(uint8_t sleepTime = 0) {
-		printf("count|op|pc count |   ac    xr    yr    sp      sr   NV-BDIZC");
 
 		while (!jammed) {
-			counter += 1;
-			if (sleepTime)Sleep(sleepTime);
 
-			printf("\n%5d:%X:", counter, prog[pc]); afficher(); exec(prog);
+			if (sleepTime)Sleep(sleepTime);
+		
+			//printf("\n%5d:%2X:%2X %2X:", counter, prog[pc], prog[pc+1], prog[pc+2]); afficher(); 
+			
+			auto t0 = Time::now();
+			auto t1 = Time::now();
+			fsec fs = t1 - t0;
+
+			long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(fs).count();
+
+			while (microseconds < 5) {
+				auto t1 = Time::now();
+				fsec fs = t1 - t0;
+				microseconds = std::chrono::duration_cast<std::chrono::microseconds>(fs).count();
+			}
+
+			exec(prog);
 		}
 		printf("\nCPU jammed at pc = $%X", pc - 1);
 		//nums += 1;
@@ -1177,68 +1259,45 @@ public:
 	void afficher() {
 		printf("pc: %04X ac: %02x xr: %02x yr: %02x sp: %02x sr: %02x ", pc, ac, xr, yr, sp, sr);
 		for (int i = 0; i < 8; i++) {
-			//if ((i!=2)&(i!=3))
 			printf("%d", (sr >> 7 - i) & 1);
 		}
-
 	}
-
 };
 
-#define ORG 0xC000 // start position of PRG-ROM in map
+//#define ORG 0xC000 // start position of PRG-ROM in map
 
 void cpuf() {
 	//measure the time accurately (milliseconds) it takes to run the program
 
-	pc = ORG;
+
 	//insertAt(ram, ORG, prog2);
+
 	Cpu f(ram, prog);
-	/*
-	auto start = std::chrono::high_resolution_clock::now();
-	for (uint64_t i = 0; i <1000000000; i++) {
-		pc = 0;
-		f.run();
-		nums += 1;
-	}
 
-	auto finish = std::chrono::high_resolution_clock::now();
-	std::chrono::duration<double> elapsed = finish - start;
-	std::cout << " elapsed time: " << elapsed.count() << " s\n";
-	*/
-
+	pc = (ram[0xFFFD] << 8) | ram[0xFFFC];
 	f.run(0); // SLEEP TIME
+
 }
 
-uint8_t* testMem = (uint8_t*)calloc((1 << 16), sizeof(uint8_t));
 FILE* testFile;
 
 int mainCPU() {
-
-	fopen_s(&testFile, "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\nestest.nes", "rb");
-	if (!fopen_s) {
-		printf("\nI CANt HAS VLID TEST FILE ?!!!1!11 >>:(\n");
-		exit(1);
-	}
 	uint32_t i = 0;
 	uint8_t tmp;
-	uint32_t orgInRam = 0xC000;
-	do {
-		//printf("curr: %d\n", i);
-		//tmp = getc(testFile);
-		fread(&tmp, 1, 1, testFile);
-		ram[i + orgInRam] = tmp;
-		i++;
-	} while (!feof(testFile));
 
-	//fread(ram, 1, 1<<16, testFile);
-	//testMem[6001] = 0xDEAD;
+	fopen_s(&testFile, "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\snow.nes", "rb");
 
-	//insertAt(ram, 0x400, testMem);
-	printf("%d\n", ram[0x400]);
+	Rom rom(testFile);
 
-	//cpuf();
-	//ram[0x4001] = 29;
+	chrrom = rom.getChrRom();
+
+	if (!fopen_s) {
+		printf("\nError: can't open file\n");
+		exit(1);
+	}
+
 	std::thread tcpu(cpuf);
+
 	int son = 0;
 	if (son) {
 		std::thread tsound(soundmain);

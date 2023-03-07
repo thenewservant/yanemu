@@ -21,9 +21,9 @@ uint8_t lengthCounter[4]; // length counters for pulse 1 & 2, triangle, and nois
 uint8_t envelope[4]; //envelope of pulse1, pulse2 and noise
 
 
-void workSound(char * buffer, uint64_t bufferSize) {
+void workSound(char* buffer, uint64_t bufferSize) {
 	//char *buffer = new char[bufferSize];
-	const uint8_t dutyLut[][8] = {{0, 1, 0, 0, 0, 0, 0, 0},
+	const uint8_t dutyLut[][8] = { {0, 1, 0, 0, 0, 0, 0, 0},
 								{0, 1, 1, 0, 0, 0, 0, 0},
 								{0, 1, 1, 1, 1, 0, 0, 0},
 								{1, 0, 0, 1, 1, 1, 1, 1} };
@@ -31,7 +31,7 @@ void workSound(char * buffer, uint64_t bufferSize) {
 	ram[0x4000] = 0b10011000; //pulse1 settings
 	ram[0x4004] = 0b10011000; //pulse2 settings
 	//pulse1 timings
-	ram[0x4002] = 0b11100110; //pulse1 low timer bits 
+	ram[0x4002] = 0b11100110; //pulse1 low timer bits
 	ram[0x4003] = 0b11111000; // pulse1 shall be of lower frequency (approx 235 hz)
 
 	//pulse2 timings
@@ -46,17 +46,17 @@ void workSound(char * buffer, uint64_t bufferSize) {
 
 	const double frequency = 440.0;
 	const double amplitude = 1;
-	const uint64_t sampleRate = 44100;
+	const uint64_t sampleRate = 22100;
 
 	uint16_t pulse1Counter = timer[0], pulse2Counter = timer[1], triangleCounter = timer[2];
 	//tIsUp means Triangle is going down
-	bool p1IsUp = true, p2IsUp = true, tIsUp = true ;
+	bool p1IsUp = true, p2IsUp = true, tIsUp = true;
 
 	char sample = 0;
 	char sampleTriangle = 0;
-	
+
 	for (int i = 0; i < bufferSize; i += 1) {
-		
+
 		readChannels();
 		if (!pulse1Counter) {
 			p1IsUp ^= 1;
@@ -75,30 +75,28 @@ void workSound(char * buffer, uint64_t bufferSize) {
 
 		//printf("\n%d", ram[0x4002]);
 		//printf("%d, %d\n", dutyCycle1, dutyCycle2);
-		
-		
-		sample = envelope[0]*((p1IsUp * pulse1Counter--) > 0);//p1
+
+
+		sample = envelope[0] * ((p1IsUp * pulse1Counter--) > 0);//p1
 		sample += envelope[1] * ((p2IsUp * pulse2Counter--) > 0);//p2
 
-		sampleTriangle = 1*triangleLUT[((triangleCounter--)*32/(timer[2]|(timer[2]==0))) % 32];
-	
+		sampleTriangle = 1 * triangleLUT[((triangleCounter--) * 32 / (timer[2] | (timer[2] == 0))) % 32];
+
 		//printf("\n%d", sampleTriangle);
 		//printf("\n%d", sample);
 		//char sample = (i % (int)(sampleRate / (frequency))) < (sampleRate / (2*frequency));
 		 //sample = (amplitude * 127 * (2*sample - 1));
 
-		buffer[i] = 4*sample/2 + 5*sampleTriangle;
-		
+		buffer[i] = 4 * sample / 2 + 5 * sampleTriangle;
+
 	}
 
-	
+
 	constexpr double apuCycleDelay = 1.117460147;
-
-
 
 }
 
-void readChannels(){
+void readChannels() {
 	dutyCycle1 = (ram[0x4000] & DUTY_CYCLE) >> 6;
 	dutyCycle2 = (ram[0x4004] & DUTY_CYCLE) >> 6;
 	timer[0] = ram[0x4002] | ((ram[0x4003] & TIMER_HIGH) << 8); //p1
