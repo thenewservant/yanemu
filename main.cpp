@@ -1,3 +1,4 @@
+
 #include "ppu.h"
 #include "simpleCPU.hpp"
 
@@ -25,13 +26,14 @@ int main(int argc, char* argv[]) {
 	Uint32* pixels = (Uint32*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(Uint32));
 	uint32_t cnt = 0;
 	// Fill pixel buffer with red and black checkers
+	
 	std::thread tcpu(mainCPU);
 
 	auto start = std::chrono::high_resolution_clock::now();
 	int zzz = 0;
 	SDL_Event event;
-
-	while (true) {
+	Sleep(3);
+	while (1) {
 
 		zzz += 1;
 		int kkk;
@@ -39,39 +41,30 @@ int main(int argc, char* argv[]) {
 		{
 			kkk = SDL_PollEvent(&event);
 			SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
-			Sleep(1);
+			Sleep(10);
 			// Render texture and present on screen
 
 			SDL_RenderCopy(renderer, texture, NULL, NULL);
 			SDL_RenderPresent(renderer);
 
 			if (ram[0x2000] & N_FLAG) NULL;
-			if (1)
+			if (0)
 			{
-				if (((zzz % 10) == 0) && (ram[0x2000] & N_FLAG)) {
+				if (((zzz % 800) == 0) && (ram[0x2000] & N_FLAG)) {
 					_nmi();
 					ram[0x2002] |= 0x80;
 				}
-				if (((zzz % 10) == 1) && (ram[0x2000] & N_FLAG)) {
+				if (((zzz % 800) == 5) && (ram[0x2000] & N_FLAG)) {
 					ram[0x2002] &= 0b01111111;
 				}
 
 			}
 			//ram[0x4000] = 0b11001011;
-
-
-
 		}
 		//Sleep(0);
 	}
 
-
-	/*SDL_Event event;
-	while (true) {
-
-		if (SDL_WaitEvent(&event) == 0) {
-		}
-	}*/
+	
 	// Free memory
 	free(pixels);
 
@@ -83,5 +76,3 @@ int main(int argc, char* argv[]) {
 
 	return 0;
 }
-
-

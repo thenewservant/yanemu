@@ -15,6 +15,7 @@
 #include "sound.h"
 #endif
 
+#define or |
 #define BE_LE_U16(u16) (u16 & 0xff00) >> 8 | (u16 & 0x00ff) << 8
 #define E NULL
 #define PAL_CPU_CLOCK_DIVIDER 16
@@ -34,11 +35,18 @@
 
 #define SR_RST 0b00110100 // IGNORED(_), B and INTERRUPT are set to 1
 #define RELATIVE_BRANCH_CORE ((prog[pc] & N_FLAG) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc])
+typedef uint8_t u8;
+typedef uint16_t u16;
+typedef uint32_t u32;
+typedef uint64_t u64;
 
 extern uint8_t* ram;
 extern uint8_t* prgromm;
 extern uint8_t* chrrom;
-static const uint8_t Cycles[256] = {
+extern u16 ppuAddrLatch;
+extern u8 *ppuRam;
+
+static const uint8_t Cycles[] = {
   7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
   2,5,2,8,4,4,6,6,2,4,2,7,5,5,7,7,
   6,6,2,8,3,3,5,5,4,2,2,2,4,4,6,6,
@@ -59,6 +67,9 @@ static const uint8_t Cycles[256] = {
 typedef std::chrono::high_resolution_clock Time;
 typedef std::chrono::microseconds ms;
 typedef std::chrono::duration<float> fsec;
+
+
+
 int mainCPU();
 void _nmi();
 #endif
