@@ -1,3 +1,4 @@
+
 #include "sound.h"
 #pragma comment(lib, "dsound.lib")
 
@@ -21,7 +22,7 @@ void createSineWaveBuffer()
 {
 	// Allocate memory for the buffer
 	char* buffer = new char[bufferSize];
-	/*
+	
 
 
 	// Fll the buffer with the sine wave
@@ -33,7 +34,7 @@ void createSineWaveBuffer()
 
 		buffer[i + 1] = (char)(sample >> 8);
 
-	}*/
+	}
 
 	//uint64_t dur;
 	workSound(buffer, bufferSize);

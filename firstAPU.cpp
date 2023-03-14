@@ -1,7 +1,7 @@
+
 #include "firstAPU.h"
-#include "simpleCPU.hpp"
-#include <corecrt_math.h>
-#include <stdio.h>
+
+
 
 // minimal APU excluding additional / game-specific sound channels.
 

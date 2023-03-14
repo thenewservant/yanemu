@@ -1,7 +1,9 @@
-#pragma once
 
-#include <stdint.h>
-#include <stdlib.h>
+#pragma once
+#include "simpleCPU.hpp"
+
+#include <corecrt_math.h>
+#include <stdio.h>
 
 #define REF 4000
 #define DUTY_CYCLE 0b11000000
@@ -23,3 +25,4 @@
 
 void workSound(char* buffer, uint64_t bufferSize);
 void readChannels();
+

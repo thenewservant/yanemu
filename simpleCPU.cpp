@@ -1,16 +1,6 @@
+#pragma warning(disable:4996)
 #include "simpleCPU.hpp"
-
-u16 pc;
-u8 ac = 0, xr, yr, sr = SR_RST, sp = 0xFD;
-
-bool jammed = false; // is the cpu jammed because of certain instructions?
-
-u8* ram = (u8*)calloc((1 << 16), sizeof(u8));
-u8* chrrom = (u8*)malloc(0x2000 * sizeof(u8));
-u8* prog = ram;
-u32 cycles;
-
-u16 bigEndianTmp; // u16 used to process absolute adresses
+#include "ppu.h"
 
 using namespace std;
 /*
@@ -23,20 +13,32 @@ using namespace std;
 u16 aluTmp = 0; // used to store the result of an addition
 u8  termB; //used for signed alu operations with ACCUMULATOR
 
+u8 tmpN = 0; // used to store the result of a subtraction on 8 bits (to further deduce the N flag)
+u8 m = 0; // temp memory for cmp computing
+
 // multi-purpose core procedures
 u8 lastReg;
+u8 ac = 0, xr, yr, sr = SR_RST, sp = 0xFD;
+u16 pc;
+bool jammed = false; // is the cpu jammed because of certain instructions?
 
+u8* ram;
+u8* chrrom;
+u8* prog;
+u32 counter = 0;
+u32 cycles = 0;
+u16 bigEndianTmp; // u16 used to process absolute adresses
+
+u8 wr2006Nb = 0;
+u8 wr2006tmp = 0;
 
 //rd is READ. Used to filter certain accesses (such as PPUADDR latch)
-inline u16 rd(u16 at) {
-
+inline u8 rd(u16 at) {
 	if (at == 0x2002) {
-		//ppuAddrLatch = 0;
+		ppuADDR = 0;
 	}
 	return ram[at];
 }
-u8 wr2006Nb = 0;
-u8 wr2006tmp = 0;
 
 //absolute memory access with arg (xr or yr) offset
 u16 absArg(u8 arg, u8 cyc = 1) {
@@ -44,12 +46,11 @@ u16 absArg(u8 arg, u8 cyc = 1) {
 	u16 w2 = where + arg;
 	if ((where & 0xFF00) != (w2 & 0xFF00)) {
 		cycles += cyc;
-		printf("OTHER PAGE!\n");
 	}
 	return w2;
 }
 
-u16 indY(u8 cyc=1) {
+u16 indY(u8 cyc = 1) {
 	u16 where = ram[prog[pc]] | (ram[(u8)(prog[pc] + 1)] << 8);
 	u16 w2 = where + yr;
 	if ((where & 0xFF00) != (w2 & 0xFF00)) {
@@ -61,24 +62,24 @@ u16 indY(u8 cyc=1) {
 inline void wr(u16 where, u16 what) {
 	if (where == 0x2006) {
 		wr2006Nb += 1;
-
 		if (!(wr2006Nb % 2)) {
-			printf("latched: %2X%2X", wr2006tmp, what);
-			ppuAddrLatch = (wr2006tmp << 8) | what;
-			printf("data:  %2X\n", ram[0x2007]);
+			ppuADDR = (wr2006tmp << 8) | what;
+			printf("\nUPDATE");
+			
 		}
-
 		else {
 			wr2006tmp = what;
 		}
-
 	}
 	else if (where == 0x2007) {
-		printf("data(2007):  %2X\n", ram[0x2007]);
-		ppuRam[ppuAddrLatch++] = ram[0x2007];
+		//printf("data(2007):  %2X\n", ram[0x2007]);
+		
+		writePPU(what);
+		
 	}
-	ram[where] = what;
-
+	
+		ram[where] = what;
+	
 }
 
 inline void check_NZ(u16 obj) {
@@ -287,9 +288,6 @@ void _B8clvM() {
 	sr &= ~V_FLAG;
 }
 
-
-u8 tmpN = 0; // used to store the result of a subtraction on 8 bits (to further deduce the N flag)
-u8 m = 0; // temp memory for cmp computing
 
 inline void _cmp() {
 	tmpN = ac - m;
@@ -918,7 +916,6 @@ void _F9sbcA() {
 }
 
 
-
 void _E1sbcN() {
 
 	termB = ~ram[ram[(u8)(prog[pc] + xr)] | (ram[(u8)(prog[pc] + xr + 1)] << 8)];
@@ -1063,23 +1060,6 @@ void _0BancI() {
 	pc++;
 }
 
-/*
-DCP (DCM)
-
-	DEC oper + CMP oper
-
-	M - 1 -> M, A - M
-	N	Z	C	I	D	V
-	+	+	+	-	-	-
-	addressing	assembler	opc	bytes	cycles
-	zeropage	DCP oper	C7	2	5
-	zeropage,X	DCP oper,X	D7	2	6
-	absolute	DCP oper	CF	3	6
-	absolut,X	DCP oper,X	DF	3	7
-	absolut,Y	DCP oper,Y	DB	3	7
-	(indirect,X)	DCP (oper,X)	C3	2	8
-	(indirect),Y	DCP (oper),Y	D3	2	8
-*/
 
 void _C7dcpZ() {
 	ram[prog[pc]] -= 1;
@@ -1092,26 +1072,6 @@ void _D7dcpZ() {
 	_D5cmpZ();
 	pc++;
 }
-
-/*
-RLA
-
-	ROL oper + AND oper
-
-	M = C <- [76543210] <- C, A AND M -> A
-	N	Z	C	I	D	V
-	+	+	+	-	-	-
-	addressing	assembler	opc	bytes	cycles
-	zeropage	RLA oper	27	2	5
-	zeropage,X	RLA oper,X	37	2	6
-	absolute	RLA oper	2F	3	6
-	absolut,X	RLA oper,X	3F	3	7
-	absolut,Y	RLA oper,Y	3B	3	7
-	(indirect,X)	RLA (oper,X)	23	2	8
-	(indirect),Y	RLA (oper),Y	33	2	8  */
-
-
-	// NOPS
 
 void _27rlaZ() {
 	_26rolZ();
@@ -1174,8 +1134,6 @@ void _B3laxN() {
 	_AAtaxM();
 }
 
-
-
 //NOPS
 
 void _EAnopM() { NOP; }
@@ -1187,6 +1145,11 @@ void _04nopZ() { NOP; pc++; }
 void _0CnopA() { NOP; pc += 2; }
 
 void _1CnopA() { NOP; absArg(xr), pc += 2; }
+
+u8 nums = 0;
+u64 loops = 0;
+
+u8* prgromm = (u8*)calloc(0xFFFF, sizeof(u8));
 
 void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, E, _04nopZ, _05oraZ, _06aslZ, _07sloZ,
 						_08phpM, _09oraI, _0Aasl_, _0BancI, _0CnopA, _0DoraA, _0EaslA, _0FsloA,
@@ -1222,193 +1185,256 @@ void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, E, _04nopZ, _05oraZ, _06asl
 						E, _F8sedM, _F9sbcA, _EAnopM, E, _1CnopA, _FDsbcA, _FEincA, E
 };
 
-u8 nums = 0;
-u64 loops = 0;
-
-u8* prgromm = (u8*)malloc(0xFFFF * sizeof(u8));
-
-
-class Rom {// basic for just NROM support
-private:
-	u8 mapperType;
-	u8 prgRomSize; // in 16kB units
-	u8 chrRomSize; // in 8kB units
-	u8* prgRom;
-	u8* chrRom;
-	u8 resetPosition;
-public:
-	//constructor is 
-	Rom(FILE* romFile) {
-		if (romFile == NULL) {
-			printf("Error: ROM file not found");
-			exit(1);
-		}
-		u8 header[16];
-
-		fread(header, 1, 16, romFile);
-		if (header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1A) {
-			printf("Error: ROM file is not a valid NES ROM");
-			exit(1);
-		}
-
-		mapperType = ((header[6] & 0xF0)) | ((header[7] & 0xF0) << 4);
-		prgRomSize = header[4];
-		chrRomSize = header[5];
-		prgRom = (u8*)malloc(prgRomSize * 0x4000);
-		chrRom = (u8*)malloc(chrRomSize * 0x2000);
-		fread(prgRom, 1, prgRomSize * 0x4000, romFile);
-		fread(chrRom, 1, chrRomSize * 0x2000, romFile);
-
-		if (mapperType == 0) {
-			prgromm = prgRom;
-			mapNROM();
-		}
-		else {
-			printf("Error: Only NROM (mapper 000) supported yet!");
-		}
-	}
-
-	void mapNROM() {
-
-		printf("%X", prgRomSize);
-		u16 i = 0;
-		if (prgRomSize == 1) {
-			do {
-				wr(i + 0x8000, prgRom[i]);
-				i++;
-			} while (((i + 0x8000 <= 0xBFFF)));
-			i = 0;
-			do {
-				wr(i + 0xC000, prgRom[i]);
-				i++;
-			} while (((i + 0xC000 <= 0xFFFF)));
-		}
-		else {
-			do {
-				wr(i + 0x8000, prgRom[i]);
-				i++;
-			} while (((i + 0x8000 <= 0xFFFF)));
-		}
-	}
-
-	void printInfo() {
-		printf("Mapper type: %d \n", mapperType);
-		printf("PRG ROM size: %d \n", prgRomSize);
-	}
-	u8* getChrRom() {
-		return chrRom;
-	}
-	u8 readPrgRom(u16 addr) {
-		return prgRom[addr];
-	}
-
-	u8 readChrRom(u16 addr) {
-		return chrRom[addr];
-	}
-	u8 getChrRomSize() {
-		return chrRomSize;
-	}
-	~Rom() {
-		free(prgRom);
-		free(chrRom);
-	}
-};
-
-class Cpu {
-private:
-	u8* mem;
-	u8* prog;
-	u32 counter; // how many instr. executed so far?
-
-public:
-	Cpu(u8* ram, u8* pr) {
-		mem = ram;
-		prog = pr;
-	}
-
-	void exec(u8* prgm) {
-		//if (ram[0x2002] & N_FLAG & ram[0x2000]) _nmi();
-		cycles += Cycles[prgm[(pc)]];
-
-		opCodePtr[prgm[(pc)++]]();
-
-		//if (ram[0x2006])printf("\%X\n", ram[0x2006]);
-	}
-
-	void run(u8 sleepTime = 0) {
-
-		while (!jammed) {
-
-			counter += 1;
-			//
-			printf("\n%5d:%2X:%2X %2X:", counter, prog[pc], prog[pc + 1], prog[pc + 2]); afficher();
-
-			auto t0 = Time::now();
-			auto t1 = Time::now();
-			fsec fs = t1 - t0;
-
-			long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(fs).count();
-
-			while (microseconds < 2) {
-				auto t1 = Time::now();
-				fsec fs = t1 - t0;
-				microseconds = std::chrono::duration_cast<std::chrono::microseconds>(fs).count();
-			}
-			exec(prog);
-		}
-		printf("\nCPU jammed at pc = $%X", pc - 1);
-		//nums += 1;
-	}
-
-	void afficher() {
-		printf("pc: %04X ac: %02x xr: %02x yr: %02x sp: %02x sr: %02x PPU: %3d SL: %3d ", pc, ac, xr, yr, sp, sr, (3 * cycles) % 341, -1 + ((242 + (((3 * cycles)) / 341)) % 262));
-		for (int i = 0; i < 8; i++) {
-			printf("%d", (sr >> 7 - i) & 1);
-		}
-	}
-
-	/*void addCycles(u8 cyc) {
-		>cycles += cyc;
-	}*/
-};
-
-void cpuf() {
-	//measure the time accurately (milliseconds) it takes to run the program
-	//insertAt(ram, ORG, prog2);
-
-	Cpu f(ram, prog);
+Cpu::Cpu(u8* ram, u8* pr) {
+	mem = ram;
+	prog = pr;
 
 	pc = (ram[0xFFFD] << 8) | ram[0xFFFC];
-	pc = 0xC000;
-	f.run(0); // SLEEP TIME
+	//pc = 0xC000;
+}
+
+u32 toAbsorb = 0;
+u32 cyclesBefore = 0;
+
+void Cpu::exec() {
+	if (!(toAbsorb - cyclesBefore)) {
+		cyclesBefore = cycles;
+
+		cycles += Cycles[prog[pc]];
+		opCodePtr[prog[pc++]]();
+
+		toAbsorb = cycles-1; // current tick is  taken into account, ofc
+		//printf("\n%5d:%2X:%2X %2X:", ++counter, prog[pc], prog[pc + 1], prog[pc + 2]); afficher();
+	}
+	else {
+		//cycles += 1;
+		toAbsorb--;
+	}
+
+	//if (ram[0x2006])printf("\%X\n", ram[0x2006]);
+}
+
+void Cpu::run(u8 sleepTime = 0) {
+	while (!jammed) {
+
+		counter += 1;
+		printf("\n%5d:%2X:%2X %2X:", counter, prog[pc], prog[pc + 1], prog[pc + 2]);// afficher();
+		/*
+		auto t0 = Time::now();
+		auto t1 = Time::now();
+		fsec fs = t1 - t0;
+
+		long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(fs).count();
+
+		while (microseconds < 2) {
+			auto t1 = Time::now();
+			fsec fs = t1 - t0;
+			microseconds = std::chrono::duration_cast<std::chrono::microseconds>(fs).count();
+		}
+		*/
+		exec();
+	}
+	printf("\nCPU jammed at pc = $%X", pc - 1);
+	//nums += 1;
+}
+
+void Cpu::afficher() {
+	printf("pc: %04X ac: %02x xr: %02x yr: %02x sp: %02x sr: %02x PPU: %3d SL: %3d ", pc, ac, xr, yr, sp, sr, (3 * cycles) % 341, -1 + (((((3 * cycles)) / 341)) % 262));
+	for (int i = 0; i < 8; i++) {
+		printf("%d", (sr >> 7 - i) & 1);
+	}
+}
+
+void cpuf() {
+
+	if (!ram) {
+		printf("\nallocation error");
+		exit(1);
+	}
+	prog = ram;
+	Cpu f(ram, prog);
+	//measure the time accurately (milliseconds) it takes to run the program
+	//insertAt(ram, ORG, prog2);
+	pc = (ram[0xFFFD] << 8) | ram[0xFFFC];
+	//pc = 0xC000;
+	f.run(); // SLEEP TIME
 }
 
 int mainCPU() {
+	ram = (u8*)calloc((1 << 16), sizeof(u8));
 
-	FILE* testFile;
+	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\snow.nes", "rb");
 
-	fopen_s(&testFile, "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\nestest.nes", "rb");
-
-	Rom rom(testFile);
-
-	chrrom = rom.getChrRom();
-
-	if (!fopen_s) {
+	if (!testFile) {
 		printf("\nError: can't open file\n");
 		exit(1);
 	}
+	Rom rom(testFile, ram);
 
-	//cpuf();
+	chrrom = rom.getChrRom();
+
+	printf("CPU");
 
 	if (1) {
-		std::thread tcpu(cpuf);
+		cpuf();
+		printf("hello");
+
+		//Sleep(1000);
 		if (0) {
-			std::thread tsound(soundmain);
-			tsound.join();
+			//std::thread tsound(soundmain);
+			//sound.join();
 		}
 
-		tcpu.join();
+		//tcpu.join();
+	}
+	return 0;
+}
+
+u8 masterClockCycles = 0;
+
+void mainClockTickNTSC(Cpu f, PPU p) {
+	if (!(masterClockCycles % 13)) {
+		f.exec();
+	}
+	if (!(masterClockCycles % 4)) {
+		p.tick();
+	}
+	masterClockCycles++;
+	masterClockCycles %= 12;
+}
+
+void mainClockTickPAL(Cpu f) {
+	if (!(masterClockCycles % 16)) {
+		f.exec();
+	}
+	if (!(masterClockCycles % 5)) {
+		//ppu.tick();
+	}
+}
+
+
+inline Rom::Rom(FILE* romFile, u8* ram) {
+	this->ram = ram;
+	if (romFile == NULL) {
+		printf("Error: ROM file not found");
+		exit(1);
+	}
+	u8 header[16];
+
+	fread(header, 1, 16, romFile);
+	if (header[0] != 'N' || header[1] != 'E' || header[2] != 'S' || header[3] != 0x1A) {
+		printf("Error: ROM file is not a valid NES ROM");
+		exit(1);
 	}
 
-	return 0;
+	mapperType = ((header[6] & 0xF0)) | ((header[7] & 0xF0) << 4);
+	prgRomSize = header[4];
+	chrRomSize = header[5];
+
+	prgRom = (u8*)calloc(prgRomSize * 0x4000, sizeof(u8));
+	chrRom = (u8*)calloc(chrRomSize * 0x2000, sizeof(u8));
+
+	if (!prgRom || !chrRom) {
+		printf("7FAULT!");
+		exit(1);
+	}
+	fread(prgRom, 1, prgRomSize * 0x4000, romFile);
+	fread(chrRom, 1, chrRomSize * 0x2000, romFile);
+
+	if (mapperType == 0) {
+		prgromm = prgRom;
+		mapNROM();
+	}
+	else {
+		printf("Error: Only NROM (mapper 000) supported yet!");
+	}
+}
+
+
+void copyTo(u8* mem, u16 where, u8 what) {
+	mem[where] = what;
+}
+
+inline void Rom::mapNROM() {
+	u32 i = 0;
+	if (prgRomSize == 1) {
+		do {
+			copyTo(ram, i + 0x8000, prgRom[i]);
+			i++;
+		} while (((i + 0x8000 <= 0xBFFF)));
+		i = 0;
+		do {
+			copyTo(ram, i + 0xC000, prgRom[i]);
+			i++;
+		} while (((i + 0xC000 <= 0xFFFF)));
+	}
+	else {
+		do {
+			copyTo(ram, i + 0x8000, prgRom[i]);
+			i++;
+		} while ((((i + 0x8000) <= 0xFFFF)));
+	}
+}
+
+inline void Rom::printInfo() {
+	printf("Mapper type: %d \n", mapperType);
+	printf("PRG ROM size: %d \n", prgRomSize);
+}
+
+inline u8* Rom::getChrRom() {
+	return chrRom;
+}
+
+inline u8 Rom::readPrgRom(u16 addr) {
+	return prgRom[addr];
+}
+
+inline u8 Rom::readChrRom(u16 addr) {
+	return chrRom[addr];
+}
+
+inline u8 Rom::getChrRomSize() {
+	return chrRomSize;
+}
+
+inline Rom::~Rom() {
+	free(prgRom);
+	free(chrRom);
+}
+
+Rom::Rom() {}
+
+int mainSYS(Screen scr) {
+
+	ram = (u8*)calloc((1 << 16), sizeof(u8));
+
+	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\smb.nes", "rb");
+
+	if (!testFile) {
+		printf("\nError: can't open file\n");
+		exit(1);
+	}
+	prog = ram;
+
+	Rom rom(testFile, ram);
+	Cpu f(ram, ram);
+
+	chrrom = rom.getChrRom();
+	PPU p(scr.getPixelsPointer(), scr, rom);
+
+	switch (0) {
+	case NTSC:
+		while (1) {
+			//Sleep(1);
+			mainClockTickNTSC(f, p);
+		}
+		break;
+	case PAL:
+		while (1) {
+			mainClockTickPAL(f);
+		}
+	default:
+		printf("rom ERROR!");
+		exit(1);
+	}
 }
