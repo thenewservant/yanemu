@@ -9,6 +9,8 @@
 
 //void finalRender(uint32_t* pixels);
 extern u16 ppuADDR;
+extern u16 oamADDR;
+extern u8* ppuRam;
 class PPU {
 private:
 	u8* OAM;// = (uint8_t*)calloc(64 * 4, sizeof(uint8_t));

@@ -4,9 +4,10 @@ uint32_t LUT[][4] = { {0, 0xA0402000, 0xD0A05000, 0xF0F08000} ,
 						{0, 0xA0002F00, 0xF0FF1000, 0x4444FF00} ,
 						{0, 0x50402000, 0x52115000, 0x55F08000} ,
 						{0, 0xA0002000, 0xD0AF9000, 0xF0028000} };
-u32 scanLine, cycle;
+int32_t scanLine = 0, cycle = 0;
 u8* ppuRam;// = (u8*)calloc(1 << 15, sizeof(u8));
 u16 ppuADDR = 0;
+u16 oamADDR = 0;
 
 void copyChrRom(u8* chr) {
 	for (u16 t = 0; t < (1 << 13); t++) {
@@ -32,7 +33,7 @@ void PPU::updateOam() { // OAMDMA (0x4014) processing routine
 	}
 }
 
-void PPU::drawSprite(uint8_t yy, uint8_t id, uint8_t xx, uint8_t byte2, uint8_t palette ) {
+void PPU::drawSprite(uint8_t yy, uint8_t id, uint8_t xx, uint8_t byte2, uint8_t palette) {
 	for (int i = 0; i < 8; i++) {
 		for (int j = 0; j < 8; j++) {
 			uint16_t cur = (yy + j) * SCREEN_WIDTH + xx + i;
@@ -53,7 +54,7 @@ void PPU::showOam() {
 
 	for (uint8_t sprite = 0; sprite < 64; sprite++) { // sprite is OAM iterator
 		if ((OAM[sprite * 4] < 0xEF) && (OAM[(3 + sprite) * 4] < 0xF9))
-			drawSprite( OAM[sprite * 4], OAM[(1 + sprite) * 4], OAM[(3 + sprite) * 4], OAM[(2 + sprite) * 4]);
+			drawSprite(OAM[sprite * 4], OAM[(1 + sprite) * 4], OAM[(3 + sprite) * 4], OAM[(2 + sprite) * 4]);
 		//pixels[SCREEN_WIDTH  * OAM[sprite * 4] +   OAM[(3+sprite) * 4]] = 0xFFFF0000;
 	}
 
@@ -81,8 +82,16 @@ void PPU::finalRender() {
 	//printf("\n\n%X:%X:%X:%X:%X:%X:%X\n", ram[0x2000] , ram[0x2001], ram[0x2003], ram[0x2004], ram[0x2005], ram[0x2006], ram[0x2007], ram[0x4014]);
 }
 
+void TELLNAMETABLE() {
+	printf("\n\n\nNAMETABLE\n\n\n");
+	for (int i = 0; i < 32 * 30; i++) {
+		printf("%X:%X\n", i, ppuRam[0x2000 + i]);
+	}
+}
+
 //stands for NameTable Prefix -- add that to needed ppuRAM address suffix
 #define NT_PREFIX (0x2000 + (ram[0x2000] & 3) * 0x400)
+#define PAT_TB_PREFIX (((ram[0x2000] & 0b00010000) > 0) ? 0x1000 : 0)
 #define EXAMPLE 0 // flex
 
 void drawNameTable(u16 cycle, u8 scanl) {
@@ -102,37 +111,60 @@ void drawNameTable(u16 cycle, u8 scanl) {
 	}
 	else {
 		for (int k = 0; k < 8; k++) {
-			if ((scanl * SCREEN_WIDTH + cycle - (7 - k)) < SCREEN_WIDTH * SCREEN_HEIGHT) {
-				//if (ppuRam[NT_PREFIX + 8 * (cycle / 8) + 32 * scanl])printf("%X\n", ppuRam[NT_PREFIX + 8 * (cycle / 8) + 32 * scanl]);
-				pixels[scanl * SCREEN_WIDTH + cycle - (7 - k)] = (((ppuRam[(((ram[0x2000] & 0b00010000) == 0b00010000) ? 0x1000:0) + (ppuRam[NT_PREFIX + 8*(cycle/8 ) + 32*scanl]) + (scanl % 8)] >> (7 - k)) & 1) * 1100000) + 
-																 (((ppuRam[8 + (((ram[0x2000] & 0b00010000) > 0) * 0x1000) + (ppuRam[NT_PREFIX + 8*(cycle/8 )+32 * scanl]) + (scanl % 8)] >> (7 - k)) & 1) * 111101000);
-				if (k == 7) pixels[scanl * SCREEN_WIDTH + cycle] = 0x63890000;
+			if (((scanl * SCREEN_WIDTH + cycle + k) < SCREEN_WIDTH * SCREEN_HEIGHT) && (ram[0x2001] & 0b00001000)) {
+				//printf("%X\n", NT_PREFIX + 8 * (cycle / 8) + 32 * scanl);
+				pixels[scanl * SCREEN_WIDTH + cycle + k] = ((ppuRam[(scanl % 8) + PAT_TB_PREFIX + 16 * ppuRam[NT_PREFIX + (cycle / 8) + 32 * (scanl / 8)]] >> (7 - k)) & 1) * 1100000 +
+
+
+
+
+																 ((ppuRam[(scanl % 8) + 8 + PAT_TB_PREFIX + 16 * ppuRam[NT_PREFIX + (cycle / 8) + 32 * (scanl / 8)]] >> (7 - k)) & 1) * 1111101000;
+
+				//if (k == 7) pixels[scanl * SCREEN_WIDTH + cycle] = 0x83894000;
 			}
 		}
 	}
 }
 
+int imgcnt = 0;
+
 void PPU::sequencer() {
-	
+
 	if (((cycle % 8) == 0) && (scanLine < 240) && (cycle < 256)) {
 		drawNameTable(cycle, scanLine);
-	}
+		//updateOam();
+		//printf("here");
 
+	}
 	if ((cycle == 1) && (scanLine == 241)) {
-		_nmi();
+		//TELLNAMETABLE();
+		int donmi = 0;
 		ram[0x2002] |= 0b10000000;
+		/*if (!donmi) {
+			donmi++;
+		}
+		else {
+
+		}*/
+
+		_nmi();
+
+
+
+
 	}
 
 	if ((cycle == 1) && (scanLine == 261)) {
-		ram[0x2002] &= ~0b10000000;
+		//printf("wut");
+		ram[0x2002] &= ~0b11100000;
 	}
 }
 
 
 void PPU::tick() {
 	cycle++;
-	
-	if (cycle/341) {
+
+	if (cycle / 341) {
 		//printf("\n\ncycle %d SCANLINE %d ppuADDR %2X", cycle, scanLine, ppuADDR);
 		scanLine++;
 		cycle = 0;
@@ -147,8 +179,9 @@ void PPU::tick() {
 }
 
 
-PPU::PPU(u32 *px, Screen sc, Rom rom) {
-	scanLine = 0;
+PPU::PPU(u32* px, Screen sc, Rom rom) {
+	ram[0x2002] = 0b10000000;
+	scanLine = -1;
 	cycle = 0;
 	scr = sc;
 	ppuADDR = 0;
@@ -291,13 +324,18 @@ int main(int argc, char* argv[]) {
 }
 */
 
-void writePPU( u8 what){
+void writePPU(u8 what) {
 	ppuRam[ppuADDR] = what;
+	//printf("what?: %X actually : %X\n", what, ppuRam[ppuADDR]);
 	incPPUADDR();
 	//printf("\nppuADDR:%X", ppuADDR);
-
 }
 
 void incPPUADDR() {
-	ppuADDR += 1;
+	if (ram[0x2000] & 4) {
+		ppuADDR += 32;
+	}
+	else {
+		ppuADDR++;
+	}
 }

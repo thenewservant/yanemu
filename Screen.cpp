@@ -45,11 +45,29 @@ void Screen::updateScreen() {
 	SDL_RenderPresent(renderer);
 }
 
+u8 keyIsDown = 0;
+
 u8 Screen::listener() {
 	SDL_Event event;
 	/* handle your event here */
 	int kkk;
 	kkk = SDL_PollEvent(&event);
+	switch (event.type) {
+	case SDL_KEYDOWN:
+		if (!keyIsDown) {
+			keyIsDown = 1;
+			printf("KEYDOWNNEUHH\n");
+
+		}
+		break;
+	case SDL_KEYUP:
+		keyIsDown = 0;
+		printf("KEYRELEASE\n");
+	default:
+		break;
+	}
+
+	//ram[0x4016] = 
 
 	SDL_UpdateTexture(texture, NULL,pixels, SCREEN_WIDTH * sizeof(Uint32));
 	
@@ -57,7 +75,7 @@ u8 Screen::listener() {
 
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
-	//Sleep(10);
+	Sleep(10);
 	//User requests quit
 	//if (event.type == SDL_QUIT)
 	return 0;

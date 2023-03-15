@@ -36,6 +36,17 @@ u8 wr2006tmp = 0;
 inline u8 rd(u16 at) {
 	if (at == 0x2002) {
 		ppuADDR = 0;
+		int tmp = ram[0x2002];
+		ram[0x2002] &= ~0x80;
+		return tmp;
+	}
+
+	else if (at == 0x2007) {
+		incPPUADDR();
+	}
+
+	else if (at == 0x2004) {
+		printf("READ OAM\n");
 	}
 	return ram[at];
 }
@@ -60,26 +71,37 @@ u16 indY(u8 cyc = 1) {
 }
 
 inline void wr(u16 where, u16 what) {
+	if (where == 0x2000) {
+		if ((what & 0x80) && (ram[0x2002] & 0x80)) {
+			//_nmi();
+		}
+	}
 	if (where == 0x2006) {
 		wr2006Nb += 1;
 		if (!(wr2006Nb % 2)) {
 			ppuADDR = (wr2006tmp << 8) | what;
-			printf("\nUPDATE");
-			
+			ram[0x2007] = ppuRam[ppuADDR];
+			//printf("\nUPDATE");
 		}
 		else {
 			wr2006tmp = what;
 		}
 	}
+	else if (where == 0x2004) {
+		//printf("WRITE OAM: %X\n", what);
+	}
+	else if (where == 0x2003) {
+		//printf("WRITE ADDR  OAM : %X\n", what);
+	}
+	else if (where == 0x4014) {
+		//printf("WRITE OAM DMA: %X\n", what);
+	}
 	else if (where == 0x2007) {
 		//printf("data(2007):  %2X\n", ram[0x2007]);
-		
 		writePPU(what);
-		
+
 	}
-	
-		ram[where] = what;
-	
+	ram[where] = what;
 }
 
 inline void check_NZ(u16 obj) {
@@ -1203,8 +1225,8 @@ void Cpu::exec() {
 		cycles += Cycles[prog[pc]];
 		opCodePtr[prog[pc++]]();
 
-		toAbsorb = cycles-1; // current tick is  taken into account, ofc
-		//printf("\n%5d:%2X:%2X %2X:", ++counter, prog[pc], prog[pc + 1], prog[pc + 2]); afficher();
+		toAbsorb = cycles - 1; // current tick is  taken into account, ofc
+		//printf("\n%5d:%2X:%2X %2X:", ++counter, prog[pc], prog[pc + 1], prog[pc + 2]); //afficher();
 	}
 	else {
 		//cycles += 1;
@@ -1293,7 +1315,7 @@ int mainCPU() {
 u8 masterClockCycles = 0;
 
 void mainClockTickNTSC(Cpu f, PPU p) {
-	if (!(masterClockCycles % 13)) {
+	if (!(masterClockCycles % 12)) {
 		f.exec();
 	}
 	if (!(masterClockCycles % 4)) {
@@ -1404,10 +1426,24 @@ inline Rom::~Rom() {
 
 Rom::Rom() {}
 
+void sleepMicros(u8 micros) {
+	auto t0 = Time::now();
+	auto t1 = Time::now();
+	fsec fs = t1 - t0;
+
+	long long microseconds = std::chrono::duration_cast<std::chrono::microseconds>(fs).count();
+
+	while (microseconds < micros) {
+		auto t1 = Time::now();
+		fsec fs = t1 - t0;
+		microseconds = std::chrono::duration_cast<std::chrono::microseconds>(fs).count();
+	}
+}
+
 int mainSYS(Screen scr) {
 
 	ram = (u8*)calloc((1 << 16), sizeof(u8));
-
+	 // PPU POWER UP STATE NEEDS THIS!!
 	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\smb.nes", "rb");
 
 	if (!testFile) {
@@ -1425,12 +1461,15 @@ int mainSYS(Screen scr) {
 	switch (0) {
 	case NTSC:
 		while (1) {
+			//sleepMicros(2);
 			//Sleep(1);
 			mainClockTickNTSC(f, p);
+			//mainClockTickNTSC(f, p);
 		}
 		break;
 	case PAL:
 		while (1) {
+			sleepMicros(1);
 			mainClockTickPAL(f);
 		}
 	default:
@@ -1438,3 +1477,4 @@ int mainSYS(Screen scr) {
 		exit(1);
 	}
 }
+

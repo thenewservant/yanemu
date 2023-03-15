@@ -84,8 +84,6 @@ void check_CV();
 void _nmi();
 
 
-
-
 class Rom {// basic for just NROM support
 private:
 	u8 mapperType;
