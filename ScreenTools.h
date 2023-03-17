@@ -5,7 +5,7 @@
 #include <cstdio>
 #include "simpleCPU.hpp"
 
-#define SCREEN_WIDTH 260
+#define SCREEN_WIDTH 256
 #define SCREEN_HEIGHT 240
 
 extern u32* pixels; // real screen

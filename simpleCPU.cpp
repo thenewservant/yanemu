@@ -1,8 +1,8 @@
 #pragma warning(disable:4996)
 #include "simpleCPU.hpp"
 #include "ppu.h"
-
-using namespace std;
+#include "sound.h"
+//using namespace std;
 /*
 	_ : indicates a 6502 operation
 	XX : opCode
@@ -32,23 +32,39 @@ u16 bigEndianTmp; // u16 used to process absolute adresses
 u8 wr2006Nb = 0;
 u8 wr2006tmp = 0;
 
+u8 latchCommandCtrl1 = 0;
+u8 keys1 = 0;
+u8 keyLatchCtrl1 = 0; // controller 1 buttons
+u8 keyLatchStep = 0; // how many buttons did we show the CPU so far?
+
+void pressKey(u8 pressed, u8 released) {
+		keys1 = pressed;
+}
+
 //rd is READ. Used to filter certain accesses (such as PPUADDR latch)
 inline u8 rd(u16 at) {
-	if (at == 0x2002) {
+	u8 tmp;
+	switch (at) {
+	case 0x4016:
+		if (latchCommandCtrl1) {
+			ram[0x4016] = ram[0x4016] & 0xFE | (keyLatchCtrl1) & 1; // Yeah I love to obfuscate stuff out  
+			keyLatchCtrl1 >>= 1;
+			keyLatchCtrl1 |= 0x80;
+			//if (keyLatchStep++ >= 8) { ram[0x4016] |= 1; }
+		}
+		return ram[0x4016];
+	case 0x2002:
 		ppuADDR = 0;
-		int tmp = ram[0x2002];
+		tmp = ram[0x2002];
 		ram[0x2002] &= ~0x80;
 		return tmp;
+	case 0x2004:
+		return readOAM();
+	case 0x2007:
+		return readPPU();
+	default:
+		return ram[at];
 	}
-
-	else if (at == 0x2007) {
-		incPPUADDR();
-	}
-
-	else if (at == 0x2004) {
-		printf("READ OAM\n");
-	}
-	return ram[at];
 }
 
 //absolute memory access with arg (xr or yr) offset
@@ -70,13 +86,31 @@ u16 indY(u8 cyc = 1) {
 	return w2;
 }
 
-inline void wr(u16 where, u16 what) {
-	if (where == 0x2000) {
-		if ((what & 0x80) && (ram[0x2002] & 0x80)) {
-			//_nmi();
+inline void wr(u16 where, u8 what) {
+	switch (where) {
+	case 0x4016:
+		latchCommandCtrl1 = !(what & 1);
+		if (latchCommandCtrl1) {
+			keyLatchCtrl1 = keys1;
 		}
-	}
-	if (where == 0x2006) {
+		keyLatchStep = 0;
+		break;
+	case 0x2000:
+		if (isInVBlank() && (ram[0x2002] & 0x80) && (!(ram[0x2000] & 0x80)) && (what & 0x80)) {
+			ram[where] = what;
+			_nmi();
+			return;
+			//printf("lol");
+		}
+		break;
+	case 0x2003:
+		oamADDR = what;
+		break;
+	case 0x2004:
+		writeOAM(what);
+		ram[0x2003] = oamADDR+1;
+		break;
+	case 0x2006:
 		wr2006Nb += 1;
 		if (!(wr2006Nb % 2)) {
 			ppuADDR = (wr2006tmp << 8) | what;
@@ -86,20 +120,15 @@ inline void wr(u16 where, u16 what) {
 		else {
 			wr2006tmp = what;
 		}
-	}
-	else if (where == 0x2004) {
-		//printf("WRITE OAM: %X\n", what);
-	}
-	else if (where == 0x2003) {
-		//printf("WRITE ADDR  OAM : %X\n", what);
-	}
-	else if (where == 0x4014) {
-		//printf("WRITE OAM DMA: %X\n", what);
-	}
-	else if (where == 0x2007) {
-		//printf("data(2007):  %2X\n", ram[0x2007]);
+		break;
+	case 0x2007:
 		writePPU(what);
-
+		break;
+	case 0x4014:
+		ram[0x4014] = what;
+		updateOam();
+		break;
+	//default:
 	}
 	ram[where] = what;
 }
@@ -1226,7 +1255,7 @@ void Cpu::exec() {
 		opCodePtr[prog[pc++]]();
 
 		toAbsorb = cycles - 1; // current tick is  taken into account, ofc
-		//printf("\n%5d:%2X:%2X %2X:", ++counter, prog[pc], prog[pc + 1], prog[pc + 2]); //afficher();
+		//printf("\n%5d:%2X:%2X %2X:", ++counter, prog[pc], prog[pc + 1], prog[pc + 2]); afficher();
 	}
 	else {
 		//cycles += 1;
@@ -1325,13 +1354,15 @@ void mainClockTickNTSC(Cpu f, PPU p) {
 	masterClockCycles %= 12;
 }
 
-void mainClockTickPAL(Cpu f) {
+void mainClockTickPAL(Cpu f, PPU p) {
 	if (!(masterClockCycles % 16)) {
 		f.exec();
 	}
 	if (!(masterClockCycles % 5)) {
-		//ppu.tick();
+		p.tick();
 	}
+	masterClockCycles++;
+	masterClockCycles %= 12;
 }
 
 
@@ -1379,6 +1410,7 @@ void copyTo(u8* mem, u16 where, u8 what) {
 
 inline void Rom::mapNROM() {
 	u32 i = 0;
+	printf("%d", prgRomSize);
 	if (prgRomSize == 1) {
 		do {
 			copyTo(ram, i + 0x8000, prgRom[i]);
@@ -1388,13 +1420,13 @@ inline void Rom::mapNROM() {
 		do {
 			copyTo(ram, i + 0xC000, prgRom[i]);
 			i++;
-		} while (((i + 0xC000 <= 0xFFFF)));
+		} while ((i + 0xC000 <= 0xFFFF));
 	}
 	else {
 		do {
 			copyTo(ram, i + 0x8000, prgRom[i]);
 			i++;
-		} while ((((i + 0x8000) <= 0xFFFF)));
+		} while ((i + 0x8000) <= 0xFFFF);
 	}
 }
 
@@ -1443,8 +1475,8 @@ void sleepMicros(u8 micros) {
 int mainSYS(Screen scr) {
 
 	ram = (u8*)calloc((1 << 16), sizeof(u8));
-	 // PPU POWER UP STATE NEEDS THIS!!
-	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\smb.nes", "rb");
+	// PPU POWER UP STATE NEEDS THIS!!
+	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\mmages.nes", "rb");
 
 	if (!testFile) {
 		printf("\nError: can't open file\n");
@@ -1453,15 +1485,21 @@ int mainSYS(Screen scr) {
 	prog = ram;
 
 	Rom rom(testFile, ram);
+	rom.printInfo();
 	Cpu f(ram, ram);
 
 	chrrom = rom.getChrRom();
 	PPU p(scr.getPixelsPointer(), scr, rom);
 
-	switch (0) {
+	//#define SOUND
+	#ifdef SOUND
+	std::thread tsound(soundmain);
+    #endif
+	switch (NTSC) {
 	case NTSC:
+		printf("\ngoing NTSC mode!");
 		while (1) {
-			//sleepMicros(2);
+			//sleepMicros(1);
 			//Sleep(1);
 			mainClockTickNTSC(f, p);
 			//mainClockTickNTSC(f, p);
@@ -1469,12 +1507,15 @@ int mainSYS(Screen scr) {
 		break;
 	case PAL:
 		while (1) {
-			sleepMicros(1);
-			mainClockTickPAL(f);
+			//sleepMicros(1);
+			mainClockTickPAL(f, p);
 		}
 	default:
 		printf("rom ERROR!");
 		exit(1);
 	}
+#ifdef SOUND
+	tsound.join();
+#endif
 }
 

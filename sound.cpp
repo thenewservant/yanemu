@@ -22,20 +22,19 @@ void createSineWaveBuffer()
 {
 	// Allocate memory for the buffer
 	char* buffer = new char[bufferSize];
-	
 
 
 	// Fll the buffer with the sine wave
-
+	/*
 	for (int i = 0; i < bufferSize; i += 2) {
 		double time = (double)i / (double)sampleRate;
-		short sample = (short)(amplitude * 32767.0 * (2*(sin(2 * 3.14159 * frequency * time))>0)-1);
+		short sample = (short)(amplitude * 32767.0 * (2*(sin(3 * 3.14159 * frequency * time))>0)-1);
 		buffer[i] = (char)sample;
 
 		buffer[i + 1] = (char)(sample >> 8);
 
 	}
-
+	*/
 	//uint64_t dur;
 	workSound(buffer, bufferSize);
 
@@ -104,7 +103,7 @@ int soundmain()
 	secondaryBuffer->SetCurrentPosition(0);
 	while (1) {
 
-		Sleep(150);
+		Sleep(90);
 		secondaryBuffer->Release();
 		createSineWaveBuffer();
 		secondaryBuffer->SetCurrentPosition(0);

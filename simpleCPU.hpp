@@ -71,18 +71,18 @@ typedef std::chrono::high_resolution_clock Time;
 typedef std::chrono::microseconds ms;
 typedef std::chrono::duration<float> fsec;
 
-#define NTSC 0
-#define PAL 1
+#define PAL 0
+#define NTSC 1
 
 int mainCPU();
 u8 rd(u16 at);
 u16 absArg(u8 arg, u8 cyc);
 u16 indY(u8 cyc);
-void wr(u16 where, u16 what);
+void wr(u16 where, u8 what);
 void check_NZ(u16 obj);
 void check_CV();
 void _nmi();
-
+void pressKey(u8 pressed, u8 released);
 
 class Rom {// basic for just NROM support
 private:

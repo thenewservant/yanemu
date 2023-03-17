@@ -48,7 +48,7 @@ void workSound(char* buffer, uint64_t bufferSize) {
 	const double amplitude = 1;
 	const uint64_t sampleRate = 22100;
 
-	uint16_t pulse1Counter = timer[0], pulse2Counter = timer[1], triangleCounter = timer[2];
+	int16_t pulse1Counter = timer[0], pulse2Counter = timer[1], triangleCounter = timer[2];
 	//tIsUp means Triangle is going down
 	bool p1IsUp = true, p2IsUp = true, tIsUp = true;
 
@@ -58,15 +58,15 @@ void workSound(char* buffer, uint64_t bufferSize) {
 	for (int i = 0; i < bufferSize; i += 1) {
 
 		readChannels();
-		if (!pulse1Counter) {
+		if (pulse1Counter<0) {
 			p1IsUp ^= 1;
 			pulse1Counter = timer[0];
 		}
-		if (!pulse2Counter) {
+		if (pulse2Counter<0) {
 			p2IsUp ^= 1;
 			pulse2Counter = timer[1];
 		}
-		if (!triangleCounter) {
+		if (triangleCounter<0) {
 			triangleCounter = timer[2];
 		}
 
@@ -77,17 +77,23 @@ void workSound(char* buffer, uint64_t bufferSize) {
 		//printf("%d, %d\n", dutyCycle1, dutyCycle2);
 
 
-		sample = envelope[0] * ((p1IsUp * pulse1Counter--) > 0);//p1
-		sample += envelope[1] * ((p2IsUp * pulse2Counter--) > 0);//p2
+		sample = envelope[0] * ((p1IsUp * pulse1Counter) > 0);//p1
+		sample += envelope[1] * ((p2IsUp * pulse2Counter) > 0);//p2
 
-		sampleTriangle = 1 * triangleLUT[((triangleCounter--) * 32 / (timer[2] | (timer[2] == 0))) % 32];
+		pulse1Counter -= 5;
+
+		pulse2Counter -= 5;
+
+
+		sampleTriangle = 1 * triangleLUT[((triangleCounter) * 32 / (timer[2] | (timer[2] == 0))) % 32];
+		triangleCounter -= 5;
 
 		//printf("\n%d", sampleTriangle);
 		//printf("\n%d", sample);
 		//char sample = (i % (int)(sampleRate / (frequency))) < (sampleRate / (2*frequency));
 		 //sample = (amplitude * 127 * (2*sample - 1));
 
-		buffer[i] = 4 * sample / 2 + 5 * sampleTriangle;
+		buffer[i] = 4 * sample / 2 + 3 * sampleTriangle;
 
 	}
 
