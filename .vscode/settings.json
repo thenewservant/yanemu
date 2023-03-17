@@ -1,6 +1,0 @@
-{
-    "files.associations": {
-        "*.ads": "ada",
-        "cstdio": "cpp"
-    }
-}
