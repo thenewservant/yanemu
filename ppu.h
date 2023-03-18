@@ -1,20 +1,22 @@
 #pragma once
 #ifndef PPU_H
 #define PPU_H
-//#include "simpleCPU.hpp"
-//#include "ScreenTools.h"
+
 #include "simpleCPU.hpp"
 #include "ScreenTools.h"
+#include <vector>
+#include <set>
 
-
-//void finalRender(uint32_t* pixels);
 extern u16 ppuADDR;
 extern u8 oamADDR;
 extern u8* ppuRam;
 extern u8* OAM;
+extern u8 xScroll, yScroll;
+
 class PPU {
 private:
 	// = (uint8_t*)calloc(64 * 4, sizeof(uint8_t));
+
 	u32* pixels;
 	Screen scr;
 	Rom rom;
@@ -25,13 +27,18 @@ public:
 	void finalRender();
 	void tick();
 	void cac();
+	void drawNameTable(u16 cycle, u8 scanl);
 	void sequencer();
-	PPU(u32 *px, Screen sc, Rom rom);
+	PPU(u32* px, Screen sc, Rom rom);
 };
-void updateOam();
+
+
+
+
 void writePPU(u8 what);
+void updateOam();
 boolean isInVBlank();
-int mainSYS(Screen scr);
+int mainSYS(Screen scr, FILE* testFile);
 void incPPUADDR();
 void writeOAM(u8 what);
 u8 readOAM();

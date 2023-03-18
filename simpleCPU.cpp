@@ -8,11 +8,10 @@
 	XX : opCode
 	xxx : operation name
 	M / C / _ / I / Z / A / N / R : iMplied, aCcumulator, Single-byte, Immediate, Zeropage, Absolute, iNdirect, Relative
-
 */
 u16 aluTmp = 0; // used to store the result of an addition
 u8  termB; //used for signed alu operations with ACCUMULATOR
-
+u8 mirror = 2;
 u8 tmpN = 0; // used to store the result of a subtraction on 8 bits (to further deduce the N flag)
 u8 m = 0; // temp memory for cmp computing
 
@@ -86,8 +85,18 @@ u16 indY(u8 cyc = 1) {
 	return w2;
 }
 
+u8 scrollLatchTurn = 0; //0 --> time to write X, 1 --> Y
+
 inline void wr(u16 where, u8 what) {
+
 	switch (where) {
+	case 0x2005:
+		if (!(scrollLatchTurn % 2)) {
+			xScroll = what;
+		}
+		else {
+			yScroll = 0;
+		}
 	case 0x4016:
 		latchCommandCtrl1 = !(what & 1);
 		if (latchCommandCtrl1) {
@@ -800,7 +809,6 @@ void _16aslZ() {
 	pc++;
 }
 
-
 void _0EaslA() {
 	sr = sr & ~C_FLAG | ((ram[(prog[pc + 1] << 8) | prog[pc]] & N_FLAG) ? C_FLAG : 0);
 	ram[(prog[pc + 1] << 8) | prog[pc]] <<= 1;
@@ -1200,7 +1208,7 @@ void _1CnopA() { NOP; absArg(xr), pc += 2; }
 u8 nums = 0;
 u64 loops = 0;
 
-u8* prgromm = (u8*)calloc(0xFFFF, sizeof(u8));
+u8* prgromm; //= (u8*)calloc(0xFFFF, sizeof(u8));
 
 void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, E, _04nopZ, _05oraZ, _06aslZ, _07sloZ,
 						_08phpM, _09oraI, _0Aasl_, _0BancI, _0CnopA, _0DoraA, _0EaslA, _0FsloA,
@@ -1292,7 +1300,7 @@ void Cpu::run(u8 sleepTime = 0) {
 void Cpu::afficher() {
 	printf("pc: %04X ac: %02x xr: %02x yr: %02x sp: %02x sr: %02x PPU: %3d SL: %3d ", pc, ac, xr, yr, sp, sr, (3 * cycles) % 341, -1 + (((((3 * cycles)) / 341)) % 262));
 	for (int i = 0; i < 8; i++) {
-		printf("%d", (sr >> 7 - i) & 1);
+		printf("%d", (sr >> (7 - i)) & 1);
 	}
 }
 
@@ -1344,10 +1352,10 @@ int mainCPU() {
 u8 masterClockCycles = 0;
 
 void mainClockTickNTSC(Cpu f, PPU p) {
-	if (!(masterClockCycles % 12)) {
+	if (!(masterClockCycles % 3)) {
 		f.exec();
 	}
-	if (!(masterClockCycles % 4)) {
+	if (!(masterClockCycles % 1)) {
 		p.tick();
 	}
 	masterClockCycles++;
@@ -1381,9 +1389,10 @@ inline Rom::Rom(FILE* romFile, u8* ram) {
 	}
 
 	mapperType = ((header[6] & 0xF0)) | ((header[7] & 0xF0) << 4);
+	mirroringType = header[6] & 1;
+	mirror = mirroringType;
 	prgRomSize = header[4];
 	chrRomSize = header[5];
-
 	prgRom = (u8*)calloc(prgRomSize * 0x4000, sizeof(u8));
 	chrRom = (u8*)calloc(chrRomSize * 0x2000, sizeof(u8));
 
@@ -1395,11 +1404,11 @@ inline Rom::Rom(FILE* romFile, u8* ram) {
 	fread(chrRom, 1, chrRomSize * 0x2000, romFile);
 
 	if (mapperType == 0) {
-		prgromm = prgRom;
 		mapNROM();
 	}
 	else {
-		printf("Error: Only NROM (mapper 000) supported yet!");
+		printf("Only NROM(mapper 000) supported yet!");
+		exit(0);
 	}
 }
 
@@ -1472,16 +1481,11 @@ void sleepMicros(u8 micros) {
 	}
 }
 
-int mainSYS(Screen scr) {
-
+int mainSYS(Screen scr, FILE *testFile) {
+	
 	ram = (u8*)calloc((1 << 16), sizeof(u8));
 	// PPU POWER UP STATE NEEDS THIS!!
-	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\mmages.nes", "rb");
-
-	if (!testFile) {
-		printf("\nError: can't open file\n");
-		exit(1);
-	}
+	
 	prog = ram;
 
 	Rom rom(testFile, ram);
@@ -1499,9 +1503,12 @@ int mainSYS(Screen scr) {
 	case NTSC:
 		printf("\ngoing NTSC mode!");
 		while (1) {
-			//sleepMicros(1);
-			//Sleep(1);
-			mainClockTickNTSC(f, p);
+			//sleepMicros(2);
+			Sleep(2);
+			for (int i = 0; i < 20000; i++) {
+				mainClockTickNTSC(f, p);
+			}
+
 			//mainClockTickNTSC(f, p);
 		}
 		break;

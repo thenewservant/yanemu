@@ -37,6 +37,9 @@
 #define SR_RST 0b00100100 // IGNORED(_), B and INTERRUPT are set to 1
 //#define RELATIVE_BRANCH_CORE ((prog[pc] & N_FLAG) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc])
 
+#define VERTICAL 1
+#define HORIZONTAL 0 // mirroring type
+
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
@@ -47,7 +50,7 @@ typedef uint64_t u64;
 extern uint8_t* ram;
 extern uint8_t* prgromm;
 extern uint8_t* chrrom;
-
+extern u8 mirror;
 
 static const uint8_t Cycles[] = {
   7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
@@ -74,7 +77,7 @@ typedef std::chrono::duration<float> fsec;
 #define PAL 0
 #define NTSC 1
 
-int mainCPU();
+
 u8 rd(u16 at);
 u16 absArg(u8 arg, u8 cyc);
 u16 indY(u8 cyc);
@@ -87,6 +90,7 @@ void pressKey(u8 pressed, u8 released);
 class Rom {// basic for just NROM support
 private:
 	u8 mapperType;
+	u8 mirroringType;
 	u8 prgRomSize; // in 16kB units
 	u8 chrRomSize; // in 8kB units
 	u8* prgRom;

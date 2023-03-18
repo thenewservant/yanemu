@@ -3,6 +3,7 @@
 #define SCREENTOOLS_H
 #include <SDL.h>
 #include <cstdio>
+
 #include "simpleCPU.hpp"
 
 #define SCREEN_WIDTH 256
@@ -17,6 +18,8 @@ private:
 	SDL_Renderer* renderer;
 	SDL_Texture* texture;
 	u8 ScreenScaleFactor;
+	u8 status;
+	SDL_Event keyEvent;
 	void initSDLScreen();
 	//void threadWindowOpen();
 
@@ -25,6 +28,8 @@ public:
 	Screen(u8 scaleFact);
 	u32* getPixelsPointer();
 	void updateScreen();
+	void checkPressKey(SDL_Event event);
+	void checkRaiseKey(SDL_Event event);
 	void endSDLApplication();
 	u8 listener();
 	void writePixel(u32 where, u32 what);

@@ -27,8 +27,11 @@ void Screen::endSDLApplication() {
 	SDL_Quit();
 }
 
+
+
 Screen::Screen(u8 scaleFact) {
 	//pixels = (u32*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u32));
+	status = 0;
 	ScreenScaleFactor = scaleFact;
 	initSDLScreen();
 }
@@ -46,12 +49,9 @@ void Screen::updateScreen() {
 	SDL_RenderPresent(renderer);
 }
 
-u8 keyIsDown = 0;
 
 
-u8 status = 0;
-
-void checkPressKey(SDL_Event event) {
+void Screen::checkPressKey(SDL_Event event) {
 	switch (event.key.keysym.sym) {
 	case SDLK_LEFT:
 		status |= 0b01000000;
@@ -65,16 +65,16 @@ void checkPressKey(SDL_Event event) {
 	case SDLK_DOWN:
 		status |= 0b00100000;
 		break;
-	case SDLK_SPACE:
+	case SDLK_RETURN:
 		status |= 0b00001000;
 		break;
-	case SDLK_a:
+	case SDLK_r:
 		status |= 0b00000001;
 		break;
-	case SDLK_b:
+	case SDLK_t:
 		status |= 0b00000010;
 		break;
-	case SDLK_s:
+	case SDLK_SPACE:
 		status |= 0b00000100;
 		break;
 	default:
@@ -82,7 +82,7 @@ void checkPressKey(SDL_Event event) {
 	}
 }
 
-void checkRaiseKey(SDL_Event event) {
+void Screen::checkRaiseKey( SDL_Event event) {
 	switch (event.key.keysym.sym) {
 	case SDLK_LEFT:
 		status &= ~0b01000000;
@@ -96,16 +96,16 @@ void checkRaiseKey(SDL_Event event) {
 	case SDLK_DOWN:
 		status &= ~0b00100000;
 		break;
-	case SDLK_SPACE:
+	case SDLK_RETURN:
 		status &= ~0b00001000;
 		break;
-	case SDLK_a:
+	case SDLK_r:
 		status &= ~0b00000001;
 		break;
-	case SDLK_b:
+	case SDLK_t:
 		status &= ~0b00000010;
 		break;
-	case SDLK_s:
+	case SDLK_SPACE:
 		status &= ~0b00000100;
 		break;
 	default:
@@ -114,39 +114,33 @@ void checkRaiseKey(SDL_Event event) {
 }
 
 u8 Screen::listener() {
-	
-	SDL_Event event;
-	/* handle your event here */
-	int kkk;
-	///kkk = SDL_PollEvent(&event);
-	while (SDL_PollEvent(&event)) {
-		switch (event.type) {
+
+	while (SDL_PollEvent(&keyEvent)) {
+		switch (keyEvent.type) {
 		case SDL_KEYDOWN:
-				checkPressKey(event);
+				checkPressKey( keyEvent);
 				pressKey(status, 0);
 			break;
+
 		case SDL_KEYUP:
-			checkRaiseKey(event);
+			checkRaiseKey( keyEvent);
 			pressKey(status, 0);
-			//printf("KEYRELEASE\n");
-			//printf("Screen status after release: %X", status);
+		case SDL_WINDOWEVENT:
+			switch (keyEvent.window.event) {
+			case SDL_WINDOWEVENT_CLOSE: 
+				return 1;
+			default:
+				break;
+			}
 		default:
 			break;
 		}
 	}
 
-	//ram[0x4016] = 
-
-	SDL_UpdateTexture(texture, NULL,pixels, SCREEN_WIDTH * sizeof(Uint32));
 	
-	// Render texture and present on screen
-
-	SDL_RenderCopy(renderer, texture, NULL, NULL);
-	SDL_RenderPresent(renderer);
-	SDL_Delay(10);
+	updateScreen();
+	SDL_Delay(2);
 	//Sleep(10);
-	//User requests quit
-	//if (event.type == SDL_QUIT)
 	return 0;
 }
 
