@@ -23,7 +23,6 @@ int main(int argc, char* argv[]) {
 	}
 
 	//Sleep(500);
-
 	
 
 #else

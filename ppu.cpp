@@ -87,8 +87,8 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 			}
 		}
 	}
-	//xScroll = 0;
-	u16 offsetXScroll =  ((xScroll / 8 + cycle / 8) / 32) * (0x3c0);
+
+	u16 offsetXScroll = ((xScroll / 8 + cycle / 8) / 32)* (0x3E0);
 
 	u8 attribute = ppuRam[offsetXScroll+NT_PREFIX + 0x3C0 + ((cycle+xScroll) / 32) + 8 * (scanl / 32)]; // raw 2x2 tile attribute fetch
 	u8 value = ((attribute >> (4 * ((scanl / 16) % 2))) >> (2 * (((cycle+xScroll) / 16) % 2))) & 3;	  // Temporary solution. MUST be opitmized later
@@ -125,7 +125,7 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 					if (destination & 3) {
 						if ((sprite & SPRITE_0_BIT) && (!(pixels[(scanl)*SCREEN_WIDTH + (sprite & 0xFF) + k]&1)) && (ram[0x2001] & 2) && (ram[0x2001] & 4) && (cycle>7) )  {
 							ram[0x2002] |= 0b01000000;
-							printf("HEY");
+							//printf("HEY");
 						}
 						pixels[(scanl)*SCREEN_WIDTH + (sprite & 0xFF) + k] = colors[ppuRam[(destination)]];
 					}
@@ -136,9 +136,8 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 			}
 		}
 	}
-
 	if ((cycle == 248) && (scanl == 8)) {
-		//ram[0x2002] |= 0b01000000;
+		ram[0x2002] |= 0b01000000;
 	}
 }
 

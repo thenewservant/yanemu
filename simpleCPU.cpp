@@ -129,7 +129,7 @@ inline void wr(u16 where, u8 what) {
 	case 0x2006:
 		scrollLatchTurn += 1;
 		if (!(scrollLatchTurn % 2)) {
-			ppuADDR = (wr2006tmp << 8) | what;
+			ppuADDR = ( ((0b00111111 & wr2006tmp )<< 8)) | what;
 		}
 		else {
 			wr2006tmp = what;
