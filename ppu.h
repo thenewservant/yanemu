@@ -12,7 +12,7 @@ extern u8 oamADDR;
 extern u8* ppuRam;
 extern u8* OAM;
 extern u8 xScroll, yScroll;
-
+extern boolean renderable;
 class PPU {
 private:
 	// = (uint8_t*)calloc(64 * 4, sizeof(uint8_t));

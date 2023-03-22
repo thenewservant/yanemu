@@ -30,7 +30,9 @@ int main(int argc, char* argv[]) {
 	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\smb.nes", "rb");
 #endif
 	
-	Screen scr(2);
+
+
+	Screen scr(WindowScaleFactor);
 	std::thread tsys(mainSYS, scr, testFile);
 	while (1 && !scr.listener()) {
 		//scr.updateScreen();

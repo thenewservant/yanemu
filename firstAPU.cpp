@@ -20,13 +20,14 @@ uint8_t volume[4];
 uint8_t lengthCounter[4]; // length counters for pulse 1 & 2, triangle, and noise
 uint8_t envelope[4]; //envelope of pulse1, pulse2 and noise
 
-
-void workSound(char* buffer, uint64_t bufferSize) {
-	//char *buffer = new char[bufferSize];
-	const uint8_t dutyLut[][8] = { {0, 1, 0, 0, 0, 0, 0, 0},
+const uint8_t dutyLut[][8] = { {0, 1, 0, 0, 0, 0, 0, 0},
 								{0, 1, 1, 0, 0, 0, 0, 0},
 								{0, 1, 1, 1, 1, 0, 0, 0},
 								{1, 0, 0, 1, 1, 1, 1, 1} };
+
+void workSound(u8* buffer, uint64_t bufferSize) {
+	//char *buffer = new char[bufferSize];
+	
 	/*
 	ram[0x4000] = 0b10011000; //pulse1 settings
 	ram[0x4004] = 0b10011000; //pulse2 settings
@@ -46,7 +47,7 @@ void workSound(char* buffer, uint64_t bufferSize) {
 
 	const double frequency = 440.0;
 	const double amplitude = 1;
-	const uint64_t sampleRate = 22100;
+	const uint64_t sampleRate = 44100;
 
 	int16_t pulse1Counter = timer[0], pulse2Counter = timer[1], triangleCounter = timer[2];
 	//tIsUp means Triangle is going down
@@ -54,19 +55,19 @@ void workSound(char* buffer, uint64_t bufferSize) {
 
 	char sample = 0;
 	char sampleTriangle = 0;
-
+	readChannels();
 	for (int i = 0; i < bufferSize; i += 1) {
 
-		readChannels();
-		if (pulse1Counter<0) {
+		
+		if ((pulse1Counter<0) && (ram[0x4015] & 1)) {
 			p1IsUp ^= 1;
 			pulse1Counter = timer[0];
 		}
-		if (pulse2Counter<0) {
+		if ((pulse2Counter<0) && (ram[0x4015] & 2)){
 			p2IsUp ^= 1;
 			pulse2Counter = timer[1];
 		}
-		if (triangleCounter<0) {
+		if ((triangleCounter<0) && (ram[0x4015] & 4)) {
 			triangleCounter = timer[2];
 		}
 
@@ -80,13 +81,13 @@ void workSound(char* buffer, uint64_t bufferSize) {
 		sample = envelope[0] * ((p1IsUp * pulse1Counter) > 0);//p1
 		sample += envelope[1] * ((p2IsUp * pulse2Counter) > 0);//p2
 
-		pulse1Counter -= 5;
+		pulse1Counter -= 2;
 
-		pulse2Counter -= 5;
+		pulse2Counter -= 2;
 
 
 		sampleTriangle = 1 * triangleLUT[((triangleCounter) * 32 / (timer[2] | (timer[2] == 0))) % 32];
-		triangleCounter -= 5;
+		triangleCounter -= 1;
 
 		//printf("\n%d", sampleTriangle);
 		//printf("\n%d", sample);
@@ -96,7 +97,6 @@ void workSound(char* buffer, uint64_t bufferSize) {
 		buffer[i] = 4 * sample / 2 + 3 * sampleTriangle;
 
 	}
-
 
 	constexpr double apuCycleDelay = 1.117460147;
 
@@ -117,6 +117,5 @@ void readChannels() {
 	lengthCounter[1] = (ram[0x4007] >> 3) & LEN_COUNT;
 	lengthCounter[2] = (ram[0x400B] >> 3) & LEN_COUNT;
 	lengthCounter[3] = (ram[0x400F] >> 3) & LEN_COUNT;
-
 }
 

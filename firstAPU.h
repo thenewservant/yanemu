@@ -23,6 +23,6 @@
 #define CPU_FREQ_PAL 1.662607 
 #define CPU_FREQ_NTSC 1.789773 //(MHz)
 
-void workSound(char* buffer, uint64_t bufferSize);
+void workSound(u8* buffer, uint64_t bufferSize);
 void readChannels();
 

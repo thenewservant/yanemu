@@ -1,6 +1,6 @@
 
 #include "sound.h"
-#pragma comment(lib, "dsound.lib")
+#include "ScreenTools.h"
 
 // Define your audio settings
 const int sampleRate = 44100;
@@ -11,108 +11,63 @@ const uint64_t bufferSize = 5 * sampleRate * numChannels * bitsPerSample / 8;
 // Define your sine wave parameters
 const double frequency = 440.0;
 const double amplitude = 0.1;
+#include <stdio.h>
+#include <stdbool.h>
+#include <math.h>
 
-// Define the DirectAudio objects
-LPDIRECTSOUND directSound;
-LPDIRECTSOUNDBUFFER primaryBuffer;
-LPDIRECTSOUNDBUFFER secondaryBuffer;
 
-// Create a sine wave buffer
-void createSineWaveBuffer()
+#define PI 3.14159265359
+
+float duration = 0;
+float freq = 440;
+
+void audio_callback(void* userdata, Uint8* stream, int len)
 {
-	// Allocate memory for the buffer
-	char* buffer = new char[bufferSize];
+    // Cast the stream to a short pointer
+    //Sint16* snd = (Sint16*)stream;
 
+    // Calculate the increment of the phase for each sample
+    //float phase_inc = freq * PI * 2 / 48000;
 
-	// Fll the buffer with the sine wave
-	/*
-	for (int i = 0; i < bufferSize; i += 2) {
-		double time = (double)i / (double)sampleRate;
-		short sample = (short)(amplitude * 32767.0 * (2*(sin(3 * 3.14159 * frequency * time))>0)-1);
-		buffer[i] = (char)sample;
-
-		buffer[i + 1] = (char)(sample >> 8);
-
-	}
-	*/
-	//uint64_t dur;
-	workSound(buffer, bufferSize);
-
-
-
-	// Create a secondary sound buffer
-	DSBUFFERDESC bufferDesc = {};
-	bufferDesc.dwSize = sizeof(DSBUFFERDESC);
-	bufferDesc.dwFlags = DSBCAPS_GLOBALFOCUS | DSBCAPS_CTRLVOLUME;
-	bufferDesc.dwBufferBytes = bufferSize;
-	bufferDesc.lpwfxFormat = new WAVEFORMATEX();
-	bufferDesc.lpwfxFormat->wFormatTag = WAVE_FORMAT_PCM;
-	bufferDesc.lpwfxFormat->nChannels = numChannels;
-	bufferDesc.lpwfxFormat->nSamplesPerSec = sampleRate;
-	bufferDesc.lpwfxFormat->wBitsPerSample = bitsPerSample;
-	bufferDesc.lpwfxFormat->nBlockAlign = bufferDesc.lpwfxFormat->nChannels * bufferDesc.lpwfxFormat->wBitsPerSample / 8;
-	bufferDesc.lpwfxFormat->nAvgBytesPerSec = bufferDesc.lpwfxFormat->nSamplesPerSec * bufferDesc.lpwfxFormat->nBlockAlign;
-	directSound->CreateSoundBuffer(&bufferDesc, &secondaryBuffer, NULL);
-
-	// Lock the buffer and copy the audio data to it
-	LPVOID audioPtr1 = nullptr, audioPtr2 = nullptr;
-	DWORD audioBytes1 = 0, audioBytes2 = 0;
-	secondaryBuffer->Lock(0, bufferSize, &audioPtr1, &audioBytes1, &audioPtr2, &audioBytes2, 0);
-	memcpy(audioPtr1, buffer, audioBytes1);
-	if (audioPtr2 != nullptr) {
-		memcpy(audioPtr2, buffer + audioBytes1, audioBytes2);
-	}
-	secondaryBuffer->Unlock(audioPtr1, audioBytes1, audioPtr2, audioBytes2);
-
-	// Play the buffer
-	secondaryBuffer->SetCurrentPosition(0);
-	secondaryBuffer->Play(0, 0, 0);
+    // Generate a sine wave for each sample in the stream
+    workSound(stream, len);
 }
 
 int soundmain()
 {
-	// Create the DirectSound object
-	HRESULT x = DirectSoundCreate(NULL, &directSound, NULL);
-
-	// Set the cooperative level
-	directSound->SetCooperativeLevel(GetDesktopWindow(), DSSCL_NORMAL);
-
-	// Create the primary sound buffer
-	DSBUFFERDESC bufferDesc = {};
-	bufferDesc.dwSize = sizeof(DSBUFFERDESC);
-	bufferDesc.dwFlags = DSBCAPS_PRIMARYBUFFER;
-	directSound->CreateSoundBuffer(&bufferDesc, &primaryBuffer, NULL);
-
-	// Set the primary buffer format
-	WAVEFORMATEX waveFormat = {};
-	waveFormat.wFormatTag = WAVE_FORMAT_PCM;
-	waveFormat.nChannels = numChannels;
-	waveFormat.nSamplesPerSec = sampleRate;
-	waveFormat.wBitsPerSample = bitsPerSample;
-	waveFormat.nBlockAlign = waveFormat.nChannels * waveFormat.wBitsPerSample / 8;
-	waveFormat.nAvgBytesPerSec = waveFormat.nSamplesPerSec * waveFormat.nBlockAlign;
-	primaryBuffer->SetFormat(&waveFormat);
-
-	// Create the sine wave buffer
-	createSineWaveBuffer();
+    // Initialize SDL audio
 
 
-	// Wait for the sound to finish playing
+    // Set the audio callback function
+    SDL_AudioSpec desired_spec, obtained_spec;
+    desired_spec.freq = 44100;
+    desired_spec.format = AUDIO_S16SYS;
+    desired_spec.channels = 1;
+    desired_spec.samples = 4096;
+    desired_spec.callback = audio_callback;
+    desired_spec.userdata = NULL;
 
+    SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &desired_spec, &obtained_spec, 0);
+    if (dev < 0)
+    {
+        fprintf(stderr, "SDL_OpenAudio error: %s\n", SDL_GetError());
+        return -1;
+    }
 
-	secondaryBuffer->SetCurrentPosition(0);
-	while (1) {
+    // Start the audio playback
+    SDL_PauseAudioDevice(dev, 0);
 
-		Sleep(90);
-		secondaryBuffer->Release();
-		createSineWaveBuffer();
-		secondaryBuffer->SetCurrentPosition(0);
-	}
+    // Loop forever
+    while (true)
+    {
+        // Generate a sine wave with a frequency of 440 Hz
+        freq = 440;
+        SDL_Delay(1);
+    }
 
-	// Release the objects
-	secondaryBuffer->Release();
-	primaryBuffer->Release();
-	directSound->Release();
+    // Clean up SDL audio
+    SDL_CloseAudioDevice(dev);
+    SDL_Quit();
 
-	return 0;
+    return 0;
 }

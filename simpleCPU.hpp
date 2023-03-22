@@ -18,7 +18,7 @@
 
 #define or |
 #define BE_LE_U16(u16) (u16 & 0xff00) >> 8 | (u16 & 0x00ff) << 8
-#define E NULL
+#define E _illegal
 #define PAL_CPU_CLOCK_DIVIDER 16
 #define NTSC_CPU_CLOCK_DIVIDER 12
 #define NOP (void)0

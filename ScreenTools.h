@@ -3,7 +3,6 @@
 #define SCREENTOOLS_H
 #include <SDL.h>
 #include <cstdio>
-
 #include "simpleCPU.hpp"
 
 #define SCREEN_WIDTH 256

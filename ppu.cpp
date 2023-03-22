@@ -13,6 +13,7 @@ u8 oamADDR = 0;
 u8* OAM = (u8*)calloc(256, sizeof(u8));
 u8 xScroll = 0;
 u8 yScroll = 0;
+boolean oddFrame = false;
 
 using namespace std;
 
@@ -21,7 +22,6 @@ void copyChrRom(u8* chr) {
 		ppuRam[t] = chr[t];
 	}
 }
-
 
 void PPU::showNameTable() {
 }
@@ -36,6 +36,7 @@ void updateOam() { // OAMDMA (0x4014) processing routine
 //stands for NameTable Prefix -- add that to needed ppuRAM address suffix
 #define NT_PREFIX (0x2000 | (ram[0x2000] & 3) * 0x400)
 #define PAT_TB_PREFIX ((ram[0x2000] & 0b00010000) ? 0x1000 : 0)
+
 #define EXAMPLE 0 // show how scanlines work
 
 void drawExample() {
@@ -48,7 +49,6 @@ void drawExample() {
 		for (int k = 0; k < 8; k++)
 			pixels[scanLine * SCREEN_WIDTH + cycle + k] = 0xFF00FF00;
 	}
-
 }
 
 std::set<u32> spritesSet; //sprites that need to be drawn
@@ -62,52 +62,58 @@ u16 getColor(u16 where) { //compensates specific mirroring for palettes (0x3F10/
 	}
 }
 
-#define SP_PT_PX ((ram[0x2000] & 1) ? 0x1000 : 0)
-
 u16 handleFlipping(u32 sprite, int8_t diff, boolean hor, boolean ver, u8 k) {
+	u16 spritePatternTable = (ram[0x2000] & 1) ? 0x1000 : 0;
 	u8 h = hor ? k : 7 - k;
 	u8 v = ver ? 8 - diff : diff;
-	return 0x3F10 + 4 * ((sprite >> 8) & 3) + ((ppuRam[SP_PT_PX + v % 8 + 8 * 2 * ((sprite >> 16) & 0xFF) + 0] >> (h)) & 1) + 2 *
-		((ppuRam[SP_PT_PX + v % 8 + 8 * 2 * ((sprite >> 16) & 0xFF) + 8] >> (h)) & 1);
+	return 0x3F10 + 4 * ((sprite >> 8) & 3) + ((ppuRam[spritePatternTable + v % 8 + 8 * 2 * ((sprite >> 16) & 0xFF) + 0] >> (h)) & 1) + 2 *
+		((ppuRam[spritePatternTable + v % 8 + 8 * 2 * ((sprite >> 16) & 0xFF) + 8] >> (h)) & 1);
 }
 
+#define SPRITE_0_BIT 0b00000000000000000001000000000000
 
 void PPU::drawNameTable(u16 cycle, u8 scanl) {
-
 	u8 nbSprites = 0;
 	u8 nbSpritesCurSl = 0;
 
-	xScroll = 0;
 	//Sprite retrieving
 	if ((cycle == 248) && (ram[0x2001] & 0b00010000)) {
-		for (u16 oamIter = 0; oamIter < 64; oamIter++) {
+		if (OAM[0] == (scanLine - 1)) {
+			spritesSet.insert(SPRITE_0_BIT | (OAM[0] << 24) | (OAM[1] << 16) | (OAM[2] << 8) | (OAM[3]));
+		}
+		for (u16 oamIter = 1; oamIter < 64; oamIter++) {
 			if (OAM[4 * oamIter] == (scanLine - 1)) {
 				spritesSet.insert((OAM[4 * oamIter] << 24) | (OAM[4 * oamIter + 1] << 16) | (OAM[4 * oamIter + 2] << 8) | (OAM[4 * oamIter + 3]));
 			}
 		}
-		//printf("\n%d", spritesSet.size());
 	}
+	//xScroll = 0;
+	u16 offsetXScroll =  ((xScroll / 8 + cycle / 8) / 32) * (0x3c0);
 
-	u8 attribute = ppuRam[NT_PREFIX + 0x3C0 + ((cycle+xScroll) / 32) + 8 * (scanl / 32)]; // raw 2x2 tile attribute fetch
+	u8 attribute = ppuRam[offsetXScroll+NT_PREFIX + 0x3C0 + ((cycle+xScroll) / 32) + 8 * (scanl / 32)]; // raw 2x2 tile attribute fetch
 	u8 value = ((attribute >> (4 * ((scanl / 16) % 2))) >> (2 * (((cycle+xScroll) / 16) % 2))) & 3;	  // Temporary solution. MUST be opitmized later
 
-	for (u8 k = 0; k < 8; k++) {
-		if (((scanl * SCREEN_WIDTH + cycle + k) < SCREEN_WIDTH * SCREEN_HEIGHT) && (ram[0x2001] & 0b00001000)) {
+	//Background rendering
+	
+	
 
-			u16 destination = 0x3F00 + 4 * value + ((ppuRam[(scanl % 8) + PAT_TB_PREFIX + 16 * ppuRam[NT_PREFIX + ((cycle+xScroll) / 8) + 32 * (scanl / 8)]] >> (7 - k)) & 1) + 2 *
+	for (u8 k = 0; k < 8; k++){
+		if ( (ram[0x2001] & 0b00001000)) {
 
-												   ((ppuRam[(scanl % 8) + 8 + PAT_TB_PREFIX + 16 * ppuRam[NT_PREFIX + ((cycle+xScroll) / 8) + 32 * (scanl / 8)]] >> (7 - k)) & 1);
+			u16 destination = 0x3F00 + 4 * value + ((ppuRam[(scanl % 8)		+ PAT_TB_PREFIX + 16 * ppuRam[offsetXScroll + NT_PREFIX + xScroll/8+((cycle) / 8) + 32 * (scanl / 8)]] >> (7 - k)) & 1) + 2 *
 
-			
-			pixels[scanl * SCREEN_WIDTH + cycle + k] = colors[ppuRam[getColor(destination)]];
+												   ((ppuRam[(scanl % 8) + 8 + PAT_TB_PREFIX + 16 * ppuRam[offsetXScroll + NT_PREFIX + (xScroll/8)+((cycle) / 8) + 32 * (scanl / 8)]] >> (7 - k)) & 1);
 
-			//if (k == 7) pixels[scanl * SCREEN_WIDTH + cycle] = 0x83894000;
-		}
+			u16 t = getColor(destination);
+			u16 tmp = (t &3)? t:0x3F00;
+
+			pixels[scanl * SCREEN_WIDTH + cycle + k] = colors[ppuRam[tmp]] + (!(tmp&3)? 1:0); // if the given color is identified as opaque, add 1, as it will be represented by SDL as slightly opaque, thus letting the ppu know this is a background color (will be used for sprite 0 evaluation)
+		}	
 	}
-
 
 	// Sprite rendering
 	if (cycle == 248) {
+		//if (xScroll)printf("\n%X", xScroll);
 		for (u32 sprite : spritesSet) {
 			int8_t diff = (scanl - (sprite >> 24) - 1);
 			if (diff < 8) {
@@ -115,43 +121,45 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 				for (u8 k = 0; k < 8; k++) {
 					destination = handleFlipping(sprite, diff, (sprite >> 8) & 0b01000000, (sprite >> 8) & 0b10000000, k);
 
+					
 					if (destination & 3) {
+						if ((sprite & SPRITE_0_BIT) && (!(pixels[(scanl)*SCREEN_WIDTH + (sprite & 0xFF) + k]&1)) && (ram[0x2001] & 2) && (ram[0x2001] & 4) && (cycle>7) )  {
+							ram[0x2002] |= 0b01000000;
+							printf("HEY");
+						}
 						pixels[(scanl)*SCREEN_WIDTH + (sprite & 0xFF) + k] = colors[ppuRam[(destination)]];
 					}
-					
 				}
 			}
 			else {
 				spritesSet.erase(sprite);
 			}
-			//OAM[sprite + 2] = 0;
 		}
-
 	}
 
-	if ((cycle == 160) && (scanl == 3)) {
+	if ((cycle == 248) && (scanl == 8)) {
 		//ram[0x2002] |= 0b01000000;
 	}
-
-
-	if ((cycle == 16) && (scanl == 2)) {
-		ram[0x2002] |= 0b01000000;
-	}
-
 }
 
+boolean renderable = false;
 boolean isVBlank = false;
 
 void PPU::sequencer() {
+
+	if (((cycle > 248) && (cycle < 360)) || ((scanLine > 240) && scanLine <260)) {
+		renderable = true;
+	}
+	else {
+		renderable = false;
+	}
 
 	if (scanLine < 240) {
 		if ((cycle >= 257) && (cycle <= 320)) {
 			oamADDR = 0;
 		}
 		else if (((cycle % 8) == 0) && (cycle < 256)) {
-
 			drawNameTable(cycle, scanLine);
-
 		}
 	}
 
@@ -160,14 +168,13 @@ void PPU::sequencer() {
 	}
 
 
-	if (scanLine == 240) {
+	if ((scanLine == 240) && (cycle==1)) {
 		isVBlank = true;
-
-
 	}
+
 	if ((cycle == 1) && (scanLine == 241)) {
 		ram[0x2002] |= 0b10000000;
-		if ((ram[0x2000] & 0x80))_nmi();
+		if (ram[0x2000] & 0x80)_nmi();
 	}
 
 	if (scanLine == 261) {
@@ -187,9 +194,14 @@ boolean isInVBlank() {
 void PPU::tick() {
 	cycle++;
 	if (cycle / 341) {
-		
 		scanLine++;
 		cycle = 0;
+	}
+	if (scanLine == 261) {
+		if (oddFrame) {
+			oddFrame ^= 1;
+			cycle++;
+		}
 	}
 	scanLine %= 262;
 
@@ -199,9 +211,7 @@ void PPU::tick() {
 	else {
 		sequencer();
 	}
-
 }
-
 
 PPU::PPU(u32* px, Screen sc, Rom rom) {
 	ram[0x2002] = 0b10000000;
@@ -216,17 +226,19 @@ PPU::PPU(u32* px, Screen sc, Rom rom) {
 	printf("PPU Startup: ok!\n\n");
 }
 
-
 void writePPU(u8 what) {
 	
-	if (ppuADDR > 0x3EFF) {
+	if ((ppuADDR >= 0x3000) && (ppuADDR <= 0x3EFF)) {
+		ppuRam[ppuADDR - 0x1000] = what;
+	}
+	else if (ppuADDR > 0x3EFF) {
 		ppuRam[getColor(ppuADDR)] = what;
 	}
 	else {
 		ppuRam[ppuADDR] = what;
 		if (ppuADDR >= 0x2000) {
 			if (mirror == VERTICAL) {
-				if (ppuADDR <= 0x2800) {
+				if (ppuADDR < 0x2800) {
 					ppuRam[ppuADDR + 0x800] = what;
 				}
 				else if (ppuADDR < 0x3000){
@@ -235,9 +247,9 @@ void writePPU(u8 what) {
 			}
 		}
 	}
-	//printf("what?: %X actually : %X\n", what, ppuRam[ppuADDR]);
+	if (ppuADDR == 0x2400)printf("\nrendering :%d, vblank: %d, cycle: %d, scanline: %d, 0x2400: %X, 0x2C00:%X", ram[0x2001] & 6, isVBlank, cycle, scanLine, ppuRam[0x2400], ppuRam[0x2C00]);
 	incPPUADDR();
-	//printf("\nppuADDR:%X", ppuADDR);
+	
 }
 
 void writeOAM(u8 what) {
@@ -245,20 +257,27 @@ void writeOAM(u8 what) {
 		OAM[oamADDR] = what;
 		oamADDR++;
 	}
-
 }
 u8 internalPPUreg = 0;
 
 u8 readPPU() {
-	if (ppuADDR > 0x3F1F) {
+	if ((ppuADDR >= 0x3000) && (ppuADDR <= 0x3EFF)) {
+		u8 tmp = internalPPUreg;
+
+		internalPPUreg = ppuRam[(ppuADDR)-0x1000];
+		incPPUADDR();
+		return tmp;
+		
+	}
+	if (ppuADDR > 0x3F1F){
 		return ppuRam[getColor(ppuADDR)];
 	}
-	else if (ppuADDR >= 0x3EFF) {
-		u8 tmp = internalPPUreg;
+	else if ((ppuADDR >= 0x3EFF) && (ppuADDR <  0x3F1F)){
+
 
 		internalPPUreg = ppuRam[getColor(ppuADDR)];
 		incPPUADDR();
-		return tmp;
+		return internalPPUreg;
 	}
 	else {
 
@@ -284,6 +303,13 @@ u8 readPPU() {
 					return tmp;
 				}
 			}
+			else {
+				u8 tmp = internalPPUreg;
+
+				internalPPUreg = ppuRam[getColor(ppuADDR)];
+				incPPUADDR();
+				return tmp;
+			}
 		}
 		else {
 			u8 tmp = internalPPUreg;
@@ -298,7 +324,6 @@ u8 readPPU() {
 
 u8 readOAM() {
 	u8 tmp = OAM[oamADDR];
-
 	if (!isVBlank) {
 		oamADDR++;
 	}

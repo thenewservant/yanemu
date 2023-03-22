@@ -2,6 +2,8 @@
 #include "simpleCPU.hpp"
 #include "ppu.h"
 #include "sound.h"
+
+
 //using namespace std;
 /*
 	_ : indicates a 6502 operation
@@ -28,7 +30,7 @@ u32 counter = 0;
 u32 cycles = 0;
 u16 bigEndianTmp; // u16 used to process absolute adresses
 
-u8 wr2006Nb = 0;
+
 u8 wr2006tmp = 0;
 
 u8 latchCommandCtrl1 = 0;
@@ -36,11 +38,15 @@ u8 keys1 = 0;
 u8 keyLatchCtrl1 = 0; // controller 1 buttons
 u8 keyLatchStep = 0; // how many buttons did we show the CPU so far?
 
+
+
 void pressKey(u8 pressed, u8 released) {
-		keys1 = pressed;
+	keys1 = pressed;
 }
 
 //rd is READ. Used to filter certain accesses (such as PPUADDR latch)
+u8 scrollLatchTurn = 0; // 0x2005 and 0x2006 common latch
+
 inline u8 rd(u16 at) {
 	u8 tmp;
 	switch (at) {
@@ -49,13 +55,15 @@ inline u8 rd(u16 at) {
 			ram[0x4016] = ram[0x4016] & 0xFE | (keyLatchCtrl1) & 1; // Yeah I love to obfuscate stuff out  
 			keyLatchCtrl1 >>= 1;
 			keyLatchCtrl1 |= 0x80;
-			//if (keyLatchStep++ >= 8) { ram[0x4016] |= 1; }
 		}
 		return ram[0x4016];
 	case 0x2002:
-		ppuADDR = 0;
+		//ppuADDR = 0;
+		//xScroll = 0;
+		//yScroll = 0;
+		scrollLatchTurn = 0;
 		tmp = ram[0x2002];
-		ram[0x2002] &= ~0x80;
+		ram[0x2002] &= ~0b11100000;
 		return tmp;
 	case 0x2004:
 		return readOAM();
@@ -85,17 +93,17 @@ u16 indY(u8 cyc = 1) {
 	return w2;
 }
 
-u8 scrollLatchTurn = 0; //0 --> time to write X, 1 --> Y
+
 
 inline void wr(u16 where, u8 what) {
 
 	switch (where) {
 	case 0x2005:
-		if (!(scrollLatchTurn % 2)) {
+		if (!(scrollLatchTurn++ % 2)) {
 			xScroll = what;
 		}
 		else {
-			yScroll = 0;
+			yScroll = what;
 		}
 	case 0x4016:
 		latchCommandCtrl1 = !(what & 1);
@@ -109,7 +117,6 @@ inline void wr(u16 where, u8 what) {
 			ram[where] = what;
 			_nmi();
 			return;
-			//printf("lol");
 		}
 		break;
 	case 0x2003:
@@ -117,14 +124,12 @@ inline void wr(u16 where, u8 what) {
 		break;
 	case 0x2004:
 		writeOAM(what);
-		ram[0x2003] = oamADDR+1;
+		ram[0x2003] = oamADDR + 1;
 		break;
 	case 0x2006:
-		wr2006Nb += 1;
-		if (!(wr2006Nb % 2)) {
+		scrollLatchTurn += 1;
+		if (!(scrollLatchTurn % 2)) {
 			ppuADDR = (wr2006tmp << 8) | what;
-			ram[0x2007] = ppuRam[ppuADDR];
-			//printf("\nUPDATE");
 		}
 		else {
 			wr2006tmp = what;
@@ -136,8 +141,8 @@ inline void wr(u16 where, u8 what) {
 	case 0x4014:
 		ram[0x4014] = what;
 		updateOam();
+		cycles += 513;
 		break;
-	//default:
 	}
 	ram[where] = what;
 }
@@ -719,7 +724,6 @@ void _5ElsrA() {
 	pc += 2;
 }
 
-
 void _01oraN() {
 	ac |= rd(ram[(u8)(prog[pc] + xr)] | (ram[(u8)(prog[pc] + xr + 1)] << 8));
 	check_NZ(ac);
@@ -817,9 +821,10 @@ void _0EaslA() {
 }
 
 void _1EaslA() {
-	sr = sr & ~C_FLAG | ((ram[(u16)(((prog[pc + 1] << 8) | prog[pc]) + xr)] & N_FLAG) ? C_FLAG : 0);
-	ram[(u16)(((prog[pc + 1] << 8) | prog[pc]) + xr)] <<= 1;
-	check_NZ(ram[(u16)(((prog[pc + 1] << 8) | prog[pc]) + xr)]);
+	u8* tmp = &ram[(u16)(((prog[pc + 1] << 8) | prog[pc]) + xr)];
+	sr = sr & ~C_FLAG | ((*tmp & N_FLAG) ? C_FLAG : 0);
+	*tmp <<= 1;
+	check_NZ(*tmp);
 	pc += 2;
 }
 
@@ -828,7 +833,7 @@ bool futureC; // carry holder
 
 void _2ArolC() {
 	futureC = (ac & N_FLAG) > 0;
-	ac = (ac << 1) | sr & C_FLAG;
+	ac = (ac << 1) | sr &C_FLAG;
 	sr = sr & ~C_FLAG | futureC; // N_FLAG is bit 7, carry will be set to it
 	check_NZ(ac);
 }
@@ -881,10 +886,11 @@ void _66rorZ() {
 }
 
 void _76rorZ() {
-	futureC = ram[(u8)(prog[pc] + xr)] & 1;
-	wr((u8)(prog[pc] + xr), (ram[(u8)(prog[pc] + xr)] >> 1) | (sr & C_FLAG) << 7);
+	u8* tmp = &ram[(u8)(prog[pc] + xr)];
+	futureC = *tmp & 1;
+	wr((u8)(prog[pc] + xr), (*tmp >> 1) | (sr & C_FLAG) << 7);
 	sr = sr & ~C_FLAG | futureC;
-	check_NZ(ram[(u8)(prog[pc] + xr)]);
+	check_NZ(*tmp);
 	pc++;
 }
 
@@ -917,29 +923,16 @@ void _60rtsM() {
 }
 
 //SBCs
-/* Archaic
-u8 tmpCarry; // used for overflow
-inline void _sbc() {
-	aluTmp = ac + termB - ((sr & C_FLAG) ^ C_FLAG);
-	tmpCarry = sr & C_FLAG;
-	sr = (ac >= (u8)(~termB + 1)) ? (sr | C_FLAG) : (sr & ~C_FLAG);
-	//sr = (sr & ~V_FLAG) | V_FLAG & (((ac ^ aluTmp) & ((termB ) ^ aluTmp)) >> 1);
-	sr = (sr & ~V_FLAG) | (V_FLAG & ((aluTmp <= 0xFF) >> 1));
-	ac = aluTmp;
-	check_NZ();
-}
-*/
+
 
 void _E9sbcI() { //seems OK!
 
 	termB = ~prog[pc];// (N_FLAG & prog[pc]) ? (~prog[pc] + 1) : prog[pc];
-	//_sbc();
 	_adc();
 	pc++;
 }
 
 void _E5sbcZ() {
-
 	termB = ~ram[prog[pc]];
 	_adc();
 	pc++;
@@ -968,7 +961,6 @@ void _FDsbcA() {
 }
 
 void _F9sbcA() {
-
 	termB = ~ram[(u16)absArg(yr)];
 	_adc();
 	pc += 2;
@@ -976,14 +968,12 @@ void _F9sbcA() {
 
 
 void _E1sbcN() {
-
 	termB = ~ram[ram[(u8)(prog[pc] + xr)] | (ram[(u8)(prog[pc] + xr + 1)] << 8)];
 	_adc();
 	pc++;
 }
 
 void _F1sbcN() {
-
 	termB = ~ram[(u16)indY()];
 	_adc();
 	pc++;
@@ -1209,6 +1199,11 @@ u8 nums = 0;
 u64 loops = 0;
 
 u8* prgromm; //= (u8*)calloc(0xFFFF, sizeof(u8));
+
+void _illegal() {
+	printf("\nThis ILLEGAL OPCODE is not implemented YET! :%X, %X, %X\n", prog[pc - 1], prog[pc], prog[pc+1]);
+	exit(0x1);
+}
 
 void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, E, _04nopZ, _05oraZ, _06aslZ, _07sloZ,
 						_08phpM, _09oraI, _0Aasl_, _0BancI, _0CnopA, _0DoraA, _0EaslA, _0FsloA,
@@ -1481,11 +1476,11 @@ void sleepMicros(u8 micros) {
 	}
 }
 
-int mainSYS(Screen scr, FILE *testFile) {
-	
+int mainSYS(Screen scr, FILE* testFile) {
+
 	ram = (u8*)calloc((1 << 16), sizeof(u8));
 	// PPU POWER UP STATE NEEDS THIS!!
-	
+
 	prog = ram;
 
 	Rom rom(testFile, ram);
@@ -1495,16 +1490,16 @@ int mainSYS(Screen scr, FILE *testFile) {
 	chrrom = rom.getChrRom();
 	PPU p(scr.getPixelsPointer(), scr, rom);
 
-	//#define SOUND
-	#ifdef SOUND
+	#define SOUND
+#ifdef SOUND
 	std::thread tsound(soundmain);
-    #endif
+#endif
 	switch (NTSC) {
 	case NTSC:
 		printf("\ngoing NTSC mode!");
 		while (1) {
 			//sleepMicros(2);
-			Sleep(2);
+			Sleep(1);
 			for (int i = 0; i < 20000; i++) {
 				mainClockTickNTSC(f, p);
 			}
@@ -1520,9 +1515,8 @@ int mainSYS(Screen scr, FILE *testFile) {
 	default:
 		printf("rom ERROR!");
 		exit(1);
-	}
+		}
 #ifdef SOUND
 	tsound.join();
 #endif
-}
-
+	}
