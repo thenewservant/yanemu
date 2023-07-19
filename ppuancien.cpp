@@ -34,7 +34,7 @@ void updateOam() { // OAMDMA (0x4014) processing routine
 }
 
 //stands for NameTable Prefix -- add that to needed ppuRAM address suffix
-#define NT_PREFIX (0x2000 | (ram[0x2000] & 3) * 0x400)
+//dead
 #define PAT_TB_PREFIX ((ram[0x2000] & 0b00010000) ? 0x1000 : 0)
 
 #define EXAMPLE 0 // show how scanlines work
@@ -62,8 +62,12 @@ u16 getColor(u16 where) { //compensates specific mirroring for palettes (0x3F10/
 	}
 }
 
-u16 handleFlipping(u32 sprite, int8_t diff, boolean hor, boolean ver, u8 k) {
 
+
+
+
+u16 handleFlipping(u32 sprite, int8_t diff, boolean hor, boolean ver, u8 k) {
+	
 	u16 spritePatternTable = (ram[0x2000] & 8) ? 0x1000 : 0;
 	u8 h = hor ? k : 7 - k;
 	u8 v = ver ? 8 - diff : diff;
@@ -71,7 +75,7 @@ u16 handleFlipping(u32 sprite, int8_t diff, boolean hor, boolean ver, u8 k) {
 		((ppuRam[spritePatternTable + v % 8 + 8 * 2 * ((sprite >> 16) & 0xFF) + 8] >> (h)) & 1);
 }
 
-#define SPRITE_0_BIT 0b00000000000000000001000000000000
+#define SPRITE_0_BIT 0b00000000000000000001000000000000 // an unused by default OAM byte 2's bit is purposedly used here as a sprite 0 indicator.
 
 void PPU::drawNameTable(u16 cycle, u8 scanl) {
 	u8 nbSprites = 0;
@@ -89,9 +93,9 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 		}
 	}
 
-	u16 offsetXScroll = ((xScroll / 8 + cycle / 8) / 32)* (0x3E0);
-
-	u8 attribute = ppuRam[offsetXScroll+NT_PREFIX + 0x3C0 + ((cycle+xScroll) / 32) + 8 * (scanl / 32)]; // raw 2x2 tile attribute fetch
+	u16 offsetXScroll =  ((xScroll / 8 + cycle / 8) / 32)* (0x3E0);
+	u16 ntPrefix = (0x2000 | (ram[0x2000] & 3) * 0x400);
+	u8 attribute = ppuRam[offsetXScroll+ntPrefix + 0x3C0 + ((cycle+xScroll) / 32) + 8 * (scanl / 32)]; // raw 2x2 tile attribute fetch
 	u8 value = ((attribute >> (4 * ((scanl / 16) % 2))) >> (2 * (((cycle+xScroll) / 16) % 2))) & 3;	  // Temporary solution. MUST be opitmized later
 
 	//Background rendering
@@ -101,9 +105,10 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 	for (u8 k = 0; k < 8; k++){
 		if ( (ram[0x2001] & 0b00001000)) {
 
-			u16 destination = 0x3F00 + 4 * value + ((ppuRam[(scanl % 8)		+ PAT_TB_PREFIX + 16 * ppuRam[offsetXScroll + NT_PREFIX + xScroll/8+((cycle) / 8) + 32 * (scanl / 8)]] >> (7 - k)) & 1) + 2 *
+			u16 destination = 0x3F00 + 4 * value + ((ppuRam[(scanl % 8) + PAT_TB_PREFIX + 16 * ppuRam[offsetXScroll + ntPrefix + xScroll / 8 + cycle / 8 + 32 * (scanl / 8)]] >> (7 - k)) & 1) + 2 *
 
-												   ((ppuRam[(scanl % 8) + 8 + PAT_TB_PREFIX + 16 * ppuRam[offsetXScroll + NT_PREFIX + (xScroll/8)+((cycle) / 8) + 32 * (scanl / 8)]] >> (7 - k)) & 1);
+												   ((ppuRam[(scanl % 8) + 8 + PAT_TB_PREFIX + 16 * ppuRam[offsetXScroll + ntPrefix + xScroll / 8 + cycle / 8 + 32 * (scanl / 8)]] >> (7 - k)) & 1);
+			
 
 			u16 t = getColor(destination);
 			u16 tmp = (t &3)? t:0x3F00;
@@ -114,7 +119,6 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 
 	// Sprite rendering
 	if (cycle == 248) {
-		//if (xScroll)printf("\n%X", xScroll);
 		for (u32 sprite : spritesSet) {
 			int8_t diff = (scanl - (sprite >> 24) - 1);
 			if (diff < 8) {
@@ -137,7 +141,8 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 			}
 		}
 	}
-	if ((cycle == 248) && (scanl == 8)) {
+	
+	if ((cycle == 248) && (scanl == 30)) {
 		ram[0x2002] |= 0b01000000;
 	}
 }
@@ -227,7 +232,6 @@ PPU::PPU(u32* px, Screen sc, Rom rom) {
 }
 
 void writePPU(u8 what) {
-	
 	if ((ppuADDR >= 0x3000) && (ppuADDR <= 0x3EFF)) {
 		ppuRam[ppuADDR - 0x1000] = what;
 	}
@@ -336,4 +340,6 @@ void incPPUADDR() {
 	else {
 		ppuADDR++;
 	}
+
 }
+
