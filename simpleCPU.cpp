@@ -52,18 +52,15 @@ inline u8 rd(u16 at) {
 	switch (at) {
 	case 0x4016:
 		if (latchCommandCtrl1) {
-			ram[0x4016] = ram[0x4016] & 0xFE | (keyLatchCtrl1) & 1; // Yeah I love to obfuscate stuff out  
+			ram[0x4016] = ram[0x4016] & 0xFE | (keyLatchCtrl1) & 1;
 			keyLatchCtrl1 >>= 1;
 			keyLatchCtrl1 |= 0x80;
 		}
 		return ram[0x4016];
 	case 0x2002:
-		//ppuADDR = 0;
-		//xScroll = 0;
-		//yScroll = 0;
-		scrollLatchTurn = 0;
+		w = 0;
 		tmp = ram[0x2002];
-		ram[0x2002] &= ~0b11100000;
+		ram[0x2002] &= ~0b10000000;
 		return tmp;
 	case 0x2004:
 		return readOAM();
@@ -93,18 +90,10 @@ u16 indY(u8 cyc = 1) {
 	return w2;
 }
 
-
-
 inline void wr(u16 where, u8 what) {
 
 	switch (where) {
-	case 0x2005:
-		if (!(scrollLatchTurn++ % 2)) {
-			xScroll = what;
-		}
-		else {
-			yScroll = what;
-		}
+	
 	case 0x4016:
 		latchCommandCtrl1 = !(what & 1);
 		if (latchCommandCtrl1) {
@@ -113,28 +102,45 @@ inline void wr(u16 where, u8 what) {
 		keyLatchStep = 0;
 		break;
 	case 0x2000:
+
+		t = ((what & 0x3) << 10) | (t & 0b111001111111111) ;
 		if (isInVBlank() && (ram[0x2002] & 0x80) && (!(ram[0x2000] & 0x80)) && (what & 0x80)) {
 			ram[where] = what;
 			_nmi();
 			return;
 		}
 		break;
+
 	case 0x2003:
 		oamADDR = what;
 		break;
 	case 0x2004:
 		writeOAM(what);
-		ram[0x2003] = oamADDR + 1;
 		break;
-	case 0x2006:
-		scrollLatchTurn += 1;
-		if (!(scrollLatchTurn % 2)) {
-			ppuADDR = ( ((0b00111111 & wr2006tmp )<< 8)) | what;
+
+	case 0x2005:
+		if (w == 0) {
+			t = ((what & ~0b111) >> 3) | (t & 0b111111111100000);
+			x = what & 0b111;
 		}
 		else {
-			wr2006tmp = what;
+			t = ((what & ~0b111) << 2) | (t & 0b111110000011111);
+			t = ((what & 0b111) << 12) | (t & 0b000111111111111);
 		}
+
+		w ^= 1;
 		break;
+	case 0x2006:
+		if (w == 0) {
+			t = ((what & 0b111111) << 8) | ( t & 0b00000011111111);
+		}
+		else {
+			t = (t & 0xFF00) | what;
+			v = t;
+		}
+		w ^= 1;
+		break;
+
 	case 0x2007:
 		writePPU(what);
 		break;
@@ -1490,7 +1496,7 @@ int mainSYS(Screen scr, FILE* testFile) {
 	chrrom = rom.getChrRom();
 	PPU p(scr.getPixelsPointer(), scr, rom);
 
-	#define SOUND
+//#define SOUND
 #ifdef SOUND
 	std::thread tsound(soundmain);
 #endif

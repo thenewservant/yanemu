@@ -2,6 +2,8 @@
 #ifndef PPU_H
 #define PPU_H
 
+#define BG_RENDERING (ram[0x2001] & 0b00001000)
+#define RENDERING    (ram[0x2001] & 0b00011000)
 #include "simpleCPU.hpp"
 #include "ScreenTools.h"
 #include <vector>
@@ -13,6 +15,10 @@ extern u8* ppuRam;
 extern u8* OAM;
 extern u8 xScroll, yScroll;
 extern boolean renderable;
+extern u16 t, v;
+extern u8 x;
+extern boolean w;
+
 class PPU {
 private:
 	// = (uint8_t*)calloc(64 * 4, sizeof(uint8_t));
@@ -27,13 +33,12 @@ public:
 	void finalRender();
 	void tick();
 	void cac();
+	//void incCoarseX();
+	//void incFineY();
 	void drawNameTable(u16 cycle, u8 scanl);
 	void sequencer();
 	PPU(u32* px, Screen sc, Rom rom);
 };
-
-
-
 
 void writePPU(u8 what);
 void updateOam();

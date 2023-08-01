@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 	
 
 #else
-	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\smb.nes", "rb");
+	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\nestress.nes", "rb");
 #endif
 	
 
@@ -38,7 +38,6 @@ int main(int argc, char* argv[]) {
 		//printf("\n\nECRAN:%2X\n\n", scr.getPixelsPointer()[700]);
 
 	}
-
 	scr.endSDLApplication();
 	tsys.join();
 	//do stuff

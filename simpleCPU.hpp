@@ -4,7 +4,6 @@
 #include <stdint.h>
 #include <iostream>
 #include <cstdio>
-
 #include <cstdlib>
 //import chrono time libs
 #include <fstream>
@@ -16,7 +15,6 @@
 //#include "sound.h"
 #endif
 
-#define or |
 #define BE_LE_U16(u16) (u16 & 0xff00) >> 8 | (u16 & 0x00ff) << 8
 #define E _illegal
 #define PAL_CPU_CLOCK_DIVIDER 16
@@ -44,8 +42,6 @@ typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
-
-
 
 extern uint8_t* ram;
 extern uint8_t* prgromm;
