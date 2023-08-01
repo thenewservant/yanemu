@@ -137,7 +137,7 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 			}
 		}
 	}
-	if ((cycle == 248) && (scanl == 8)) {
+	if ((cycle == 248) && (scanl == 30)) {
 		ram[0x2002] |= 0b01000000;
 	}
 }

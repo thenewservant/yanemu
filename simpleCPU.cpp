@@ -1490,7 +1490,7 @@ int mainSYS(Screen scr, FILE* testFile) {
 	chrrom = rom.getChrRom();
 	PPU p(scr.getPixelsPointer(), scr, rom);
 
-	#define SOUND
+	//#define SOUND
 #ifdef SOUND
 	std::thread tsound(soundmain);
 #endif
