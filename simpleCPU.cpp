@@ -30,7 +30,6 @@ u32 counter = 0;
 u32 cycles = 0;
 u16 bigEndianTmp; // u16 used to process absolute adresses
 
-
 u8 wr2006tmp = 0;
 
 u8 latchCommandCtrl1 = 0;
@@ -1189,6 +1188,11 @@ void _B3laxN() {
 	_AAtaxM();
 }
 
+//SAX
+
+
+
+
 //NOPS
 
 void _EAnopM() { NOP; }
@@ -1404,6 +1408,8 @@ inline Rom::Rom(FILE* romFile, u8* ram) {
 	fread(prgRom, 1, prgRomSize * 0x4000, romFile);
 	fread(chrRom, 1, chrRomSize * 0x2000, romFile);
 
+
+
 	if (mapperType == 0) {
 		mapNROM();
 	}
@@ -1505,12 +1511,10 @@ int mainSYS(Screen scr, FILE* testFile) {
 		printf("\ngoing NTSC mode!");
 		while (1) {
 			//sleepMicros(2);
-			Sleep(1);
+			Sleep(2);
 			for (int i = 0; i < 20000; i++) {
 				mainClockTickNTSC(f, p);
 			}
-
-			//mainClockTickNTSC(f, p);
 		}
 		break;
 	case PAL:

@@ -23,13 +23,7 @@ float freq = 440;
 
 void audio_callback(void* userdata, Uint8* stream, int len)
 {
-    // Cast the stream to a short pointer
-    //Sint16* snd = (Sint16*)stream;
 
-    // Calculate the increment of the phase for each sample
-    //float phase_inc = freq * PI * 2 / 48000;
-
-    // Generate a sine wave for each sample in the stream
     workSound(stream, len);
 }
 
@@ -60,8 +54,7 @@ int soundmain()
     // Loop forever
     while (true)
     {
-        // Generate a sine wave with a frequency of 440 Hz
-        freq = 440;
+      
         SDL_Delay(1);
     }
 

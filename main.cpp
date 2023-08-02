@@ -26,7 +26,7 @@ int main(int argc, char* argv[]) {
 	
 
 #else
-	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\nestress.nes", "rb");
+	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\smb.nes", "rb");
 #endif
 	
 

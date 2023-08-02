@@ -9,11 +9,8 @@ const uint32_t colors[] = { 0x54545400, 0x001e7400, 0x08109000, 0x30008800, 0x44
 
 int32_t scanLine = 0, cycle = 0;
 u8* ppuRam;// = (u8*)calloc(1 << 15, sizeof(u8));
-u16 ppuADDR = 0;
 u8 oamADDR = 0;
 u8* OAM = (u8*)calloc(256, sizeof(u8));
-u8 xScroll = 0;
-u8 yScroll = 0;
 boolean oddFrame = false;
 u16 t = 0, v = 0;
 u8 x = 0;
@@ -92,7 +89,7 @@ void incFineY() {
 		v = (v & ~0x03E0) | (y << 5);     // put coarse Y back into v
 	}
 }
-u8 aC = 0;
+
 void PPU::drawNameTable(u16 cycle, u8 scanl) {
 
 	u8 nbSprites = 0;
@@ -103,7 +100,6 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 	u8 tile = ppuRam[0x2000 | coarseV]; // raw 2x2 tile ID fetch
 	u16 attr = ppuRam[0x23C0 | (v & 0x0C00) | ((v >> 4) & 0x38) | ((v >> 2) & 0x07)]; // raw attribute fetch
 	u8 paletteShiftings = 2 * (((v >> 6) & 1)!=0) + (((v >> 1) & 1) != 0);
-
 	u8 palette = (attr >> (paletteShiftings*2)) & 3; // palette number
 
 	//Background rendering
@@ -121,6 +117,7 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 		}
 	}
 
+	
 	//Sprite retrieving
 	if ((cycle == 248) && (ram[0x2001] & 0b00010000)) {
 		if (OAM[0] == (scanLine - 1)) {
@@ -136,7 +133,6 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 
 	// Sprite rendering
 	if (cycle == 248) {
-		//if (xScroll)printf("\n%X", xScroll);
 		for (u32 sprite : spritesSet) {
 			int8_t diff = (scanl - (sprite >> 24) - 1);
 			if (diff < 8) {
@@ -159,7 +155,7 @@ void PPU::drawNameTable(u16 cycle, u8 scanl) {
 			}
 		}
 	}
-
+	
 	if ((cycle == 248) && (scanl == 29)) {
 		ram[0x2002] |= 0b01000000;
 	}
@@ -310,7 +306,7 @@ u8 readPPU() {
 
 		if (V >= 0x2000) {
 
-			if (mirror == VERTICAL) {
+			if (mirror == HORIZONTAL) {
 				if (V <= 0x2800) {
 					u8 tmp = internalPPUreg;
 
