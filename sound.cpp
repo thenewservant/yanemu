@@ -1,66 +1,36 @@
-
 #include "sound.h"
 #include "ScreenTools.h"
-
-// Define your audio settings
-const int sampleRate = 44100;
-const int numChannels = 1;
-const int bitsPerSample = 8;
-const uint64_t bufferSize = 5 * sampleRate * numChannels * bitsPerSample / 8;
-
-// Define your sine wave parameters
-const double frequency = 440.0;
-const double amplitude = 0.1;
 #include <stdio.h>
 #include <stdbool.h>
 #include <math.h>
+#include <stdint.h>
 
+SDL_AudioDeviceID dev;
 
-#define PI 3.14159265359
-
-float duration = 0;
-float freq = 440;
-
-void audio_callback(void* userdata, Uint8* stream, int len)
-{
-
-    workSound(stream, len);
+SDL_AudioDeviceID getDev() {
+    return dev;
 }
 
-int soundmain()
-{
-    // Initialize SDL audio
-
+int soundmain() {
 
     // Set the audio callback function
     SDL_AudioSpec desired_spec, obtained_spec;
-    desired_spec.freq = 44100;
-    desired_spec.format = AUDIO_S16SYS;
+    desired_spec.freq = 40160;
+    desired_spec.format = AUDIO_F32SYS;
     desired_spec.channels = 1;
-    desired_spec.samples = 4096;
-    desired_spec.callback = audio_callback;
+    desired_spec.samples = 4004;
+    desired_spec.callback = NULL;// (SDL_AudioCallback)audio_callback;
     desired_spec.userdata = NULL;
 
-    SDL_AudioDeviceID dev = SDL_OpenAudioDevice(NULL, 0, &desired_spec, &obtained_spec, 0);
+     dev = SDL_OpenAudioDevice(NULL, 0, &desired_spec, &obtained_spec, 0);
     if (dev < 0)
     {
         fprintf(stderr, "SDL_OpenAudio error: %s\n", SDL_GetError());
         return -1;
     }
-
+    
     // Start the audio playback
     SDL_PauseAudioDevice(dev, 0);
+    printf("\nAPU started.");
 
-    // Loop forever
-    while (true)
-    {
-      
-        SDL_Delay(1);
-    }
-
-    // Clean up SDL audio
-    SDL_CloseAudioDevice(dev);
-    SDL_Quit();
-
-    return 0;
 }

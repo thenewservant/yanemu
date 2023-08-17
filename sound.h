@@ -1,4 +1,7 @@
 #pragma once
+#ifndef SOUND_H
+#define SOUND_H
+#include "simpleCPU.hpp"
 #ifdef _WIN32
 	#include <windows.h>
 
@@ -8,6 +11,7 @@
 #include "firstAPU.h"
 #include <stdio.h>
 
-void createSineWaveBuffer();
 int soundmain();
-
+extern SDL_AudioDeviceID dev;
+SDL_AudioDeviceID getDev();
+#endif

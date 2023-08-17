@@ -1,13 +1,23 @@
 #include "ScreenTools.h"
-#include "ppu.h"
+
+#define IDM_FILE_OPEN 2
+
 u32 *pixels = (u32*)calloc(SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(u32));
 
 void Screen::initSDLScreen() {
+	char tt[100];
+	strcpy(tt, "Yanemu: ");
+	strcat(tt, title);
 
-	window = SDL_CreateWindow("PPU", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH * ScreenScaleFactor, SCREEN_HEIGHT * ScreenScaleFactor, SDL_WINDOW_SHOWN);
+	window = SDL_CreateWindow(tt, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH * ScreenScaleFactor, SCREEN_HEIGHT * ScreenScaleFactor, SDL_WINDOW_SHOWN);
+	
+	
+	
+	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
 	// Create SDL texture
 	
+	surface = SDL_CreateRGBSurfaceWithFormat(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_PIXELFORMAT_RGBA8888);
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
 	
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
@@ -35,6 +45,14 @@ Screen::Screen(u8 scaleFact) {
 	initSDLScreen();
 }
 
+Screen::Screen(u8 scaleFact, const char* title) {
+	//pixels = (u32*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u32));
+	status = 0;
+	ScreenScaleFactor = scaleFact;
+	this->title = title;
+	initSDLScreen();
+}
+
 u32* Screen::getPixelsPointer() {
 	return pixels;
 }
@@ -47,7 +65,6 @@ void Screen::updateScreen() {
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
 }
-
 
 
 void Screen::checkPressKey(SDL_Event event) {
@@ -76,6 +93,8 @@ void Screen::checkPressKey(SDL_Event event) {
 	case SDLK_SPACE:
 		status |= 0b00000100;
 		break;
+	case SDLK_i:
+		specialCom();
 	default:
 		break;
 	}
@@ -120,14 +139,15 @@ u8 Screen::listener() {
 				checkPressKey( keyEvent);
 				pressKey(status, 0);
 			break;
-
 		case SDL_KEYUP:
 			checkRaiseKey( keyEvent);
 			pressKey(status, 0);
+			break;
 		case SDL_WINDOWEVENT:
 			switch (keyEvent.window.event) {
 			case SDL_WINDOWEVENT_CLOSE: 
-				return 1;
+				printf("Window closed\n");
+				exit(0);
 			default:
 				break;
 			}
@@ -136,11 +156,11 @@ u8 Screen::listener() {
 		}
 	}
 
-	
-	updateScreen();
 	SDL_Delay(2);
-	//Sleep(10);
 	return 0;
+}
+SDL_Window* Screen::getWindow() {
+	return window;
 }
 
 void Screen::writePixel(u32 where, u32 what) {
@@ -150,3 +170,7 @@ void Screen::writePixel(u32 where, u32 what) {
 Screen::Screen() {
 
 }
+
+
+
+

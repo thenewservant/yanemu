@@ -1,9 +1,12 @@
 
 #pragma once
 #include "simpleCPU.hpp"
-
+#include <SDL.h>
 #include <corecrt_math.h>
 #include <stdio.h>
+
+#define APU_MODE_4_STEPS ((ram[0x4017] & 0x80) == 0x80)
+#define APU_MODE_5_STEPS ((ram[0x4017] & 0x80) == 0x00)
 
 #define REF 4000
 #define DUTY_CYCLE 0b11000000
@@ -20,9 +23,6 @@
 #define SWEEP_PERIOD 0b01110000
 #define SHIFT_COUNT 0b00000111
 
-#define CPU_FREQ_PAL 1.662607 
-#define CPU_FREQ_NTSC 1.789773 //(MHz)
-
-void workSound(u8* buffer, uint64_t bufferSize);
-void readChannels();
-
+void apuTick(SDL_AudioDeviceID dev = NULL);
+void updateAPU(u16 where);
+extern u32 position;

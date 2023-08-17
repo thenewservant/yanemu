@@ -31,6 +31,8 @@
 #define I_FLAG 0b00000100
 #define Z_FLAG 0b00000010
 #define C_FLAG 0b00000001
+#define NEG_NZ_FLAGS 0b01111101
+#define NEG_CV_FLAGS 0b10111110
 
 #define SR_RST 0b00100100 // IGNORED(_), B and INTERRUPT are set to 1
 //#define RELATIVE_BRANCH_CORE ((prog[pc] & N_FLAG) ? -1 * ((uint8_t)(~prog[pc]) + 1) : prog[pc])
@@ -44,7 +46,6 @@ typedef uint32_t u32;
 typedef uint64_t u64;
 
 extern uint8_t* ram;
-extern uint8_t* prgromm;
 extern uint8_t* chrrom;
 extern u8 mirror;
 
@@ -72,7 +73,7 @@ typedef std::chrono::duration<float> fsec;
 
 #define PAL 0
 #define NTSC 1
-
+#define VIDEO_MODE NTSC
 
 u8 rd(u16 at);
 u16 absArg(u8 arg, u8 cyc);
@@ -82,31 +83,8 @@ void check_NZ(u16 obj);
 void check_CV();
 void _nmi();
 void pressKey(u8 pressed, u8 released);
+void specialCom();
 
-class Rom {// basic for just NROM support
-private:
-	u8 mapperType;
-	u8 mirroringType;
-	u8 prgRomSize; // in 16kB units
-	u8 chrRomSize; // in 8kB units
-	u8* prgRom;
-	u8* chrRom;
-	u8 resetPosition;
-	u8* ram;
-public:
-	//constructor is 
-	Rom(FILE* romFile, u8 *ram);
-	Rom();
-	void mapNROM();
-
-	void printInfo();
-	u8* getChrRom();
-	u8 readPrgRom(u16 addr);
-
-	u8 readChrRom(u16 addr);
-	u8 getChrRomSize();
-	~Rom();
-};
 
 class Cpu {
 private:
@@ -115,8 +93,6 @@ private:
 
 public:
 	Cpu(u8* ram, u8* pr);
-	void exec();
-	void run(u8 sleepTime);
 	void afficher();
 };
 

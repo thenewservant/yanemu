@@ -21,30 +21,26 @@ int main(int argc, char* argv[]) {
 		printf("\nError: can't open file\n");
 		exit(1);
 	}
-
-	//Sleep(500);
 	
 
 #else
-	FILE* testFile = fopen("C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\smb.nes", "rb");
+	//const char* gameFile = "blargg\\11-stack.nes";
+	const char* gameFile = "mmages.nes";
+	const char *gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
+	char* gamePath=(char*)malloc(100 *sizeof(char));
+	gamePath = strcpy(gamePath, gameDir);
+	gamePath = strcat(gamePath, gameFile);
+	FILE* testFile = fopen(gamePath, "rb");
 #endif
-	
-
-
-	Screen scr(WindowScaleFactor);
+	//SetProcessDPIAware();
+	Screen scr(WindowScaleFactor, gameFile);
 	std::thread tsys(mainSYS, scr, testFile);
-	while (1 && !scr.listener()) {
-		//scr.updateScreen();
-		//printf("\n\nECRAN:%2X\n\n", scr.getPixelsPointer()[700]);
+
+	while (!scr.listener()) {
 
 	}
+	
 	scr.endSDLApplication();
 	tsys.join();
-	//do stuff
-
-	//Sleep(3000);
-
-	//
 	return 0;
 }
-
