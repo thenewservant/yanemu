@@ -230,9 +230,9 @@ void PPU::BGRenderer() {
 		u16 pixel = 0x3F00 + 4 * (((attributeSR[SR_LSB] & shift) > 0) + 2 * ((attributeSR[SR_MSB] & shift) > 0)) //offset to right palette
 								 + bgOpaque; // actual pattern data
 
-		u16 d = getColor(pixel);
-		u16 tmp = BG_RENDERING && (d & 3) ? d : 0x3F00; //default background color 
-		u32 bgPIX = colors[palette][ppuRam[tmp]];
+
+		u16 tmp = BG_RENDERING && (pixel & 3) ? pixel : 0x3F00; //default background color 
+		u32 bgPIX = colors[palette][rdVRAM(tmp)];
 
 		u16 spriteOpaque = spriteContainer[1][cycle-1];
 		bool priority = spriteContainer[0][cycle - 1];
