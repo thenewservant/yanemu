@@ -84,10 +84,10 @@ void Screen::checkPressKey(SDL_Event event) {
 	case SDLK_RETURN:
 		status |= 0b00001000;
 		break;
-	case SDLK_r:
+	case SDLK_f:
 		status |= 0b00000001;
 		break;
-	case SDLK_t:
+	case SDLK_d:
 		status |= 0b00000010;
 		break;
 	case SDLK_SPACE:
@@ -95,6 +95,13 @@ void Screen::checkPressKey(SDL_Event event) {
 		break;
 	case SDLK_i:
 		specialCom();
+		break;
+	case SDLK_m:
+		manualIRQ();
+		break;
+	case SDLK_r:
+		_rst();
+		break;
 	default:
 		break;
 	}
@@ -117,10 +124,10 @@ void Screen::checkRaiseKey( SDL_Event event) {
 	case SDLK_RETURN:
 		status &= ~0b00001000;
 		break;
-	case SDLK_r:
+	case SDLK_f:
 		status &= ~0b00000001;
 		break;
-	case SDLK_t:
+	case SDLK_d:
 		status &= ~0b00000010;
 		break;
 	case SDLK_SPACE:

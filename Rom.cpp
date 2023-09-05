@@ -1,7 +1,10 @@
 #include "Rom.h"
-
+#include "ppu.h"
 
 Rom::Rom(FILE* romFile, u8* ram) {
+	u8* prgRom;
+	u8* chrRom;
+
 	this->ram = ram;
 	if (romFile == NULL) {
 		printf("Error: ROM file not found");
@@ -14,108 +17,123 @@ Rom::Rom(FILE* romFile, u8* ram) {
 		printf("Error: ROM file is not a valid NES ROM");
 		exit(1);
 	}
+	
+	// if bytes 12 to 15 are not zero, and NES 2.0 is not set, then this is an iNES 1.0 ROM, and we discard the upper nibble of bytes 6 and 7
 
-	mapperType = ((header[6] & 0xF0)>>4) | ((header[7] & 0xF0));
+	if (((header[7] & 0x0C) != 8) && ((header[12] != 0) || (header[13] != 0) || (header[14] != 0) || (header[15] != 0))) {
+		mapperType = (header[6] & 0xF0)>>4 ;
+	}
+	else {
+		mapperType = ((header[6] & 0xF0) >> 4) | ((header[7] & 0xF0));
+	}
+	PRGBanks = (u8**)calloc(prgRomSize, sizeof(u8*));
+	CHRBanks = (u8**)calloc(chrRomSize, sizeof(u8*));
 	mirroringType = header[6] & 1;
 	mirror = mirroringType;
 	prgRomSize = header[4];
 	chrRomSize = header[5];
+	
 	printf("Mapper type: %d\n", mapperType);
-	printf("CHR ROM size: %d\n", chrRomSize);
-	printf("Trainer present: %d\n", (header[6] & 0x4) >> 2);
-	PRGBanks = (u8**)calloc(prgRomSize, sizeof(u8*));
-	CHRBanks = (u8**)calloc(chrRomSize, sizeof(u8*));
+	printf("CHR ROM size: %d (%d KB)\n", chrRomSize, chrRomSize * 8);
+	printf("PRG ROM size: %d (%d KB)\n", prgRomSize, prgRomSize * 16);
+	printf("Cartdrige %s battery-backed PRG RAM\n", header[6] & 2 ? "has" : "does not have");
+	printf("PRG RAM size: %d\n", header[8]);
+	printf("Nes 2.0 Format? %s\n", header[7] & 0x08 ? "Yes" : "No");
+	if (header[6] & 4)printf("Trainer present !\n");
 
-	for (int PRGbank = 0; PRGbank < prgRomSize; PRGbank++) {
-		PRGBanks[PRGbank] = (u8*)malloc(0x4000* sizeof(u8));
-		if (!PRGBanks[PRGbank]) {
-			printf("Error: can't allocate memory for PRG banks");
-			exit(1);
+
+	prgRom = (u8*)malloc(prgRomSize * 0x4000 * sizeof(u8));
+	chrRom = (u8*)malloc(chrRomSize * 0x2000 * sizeof(u8));
+	fread(prgRom, 0x4000 * sizeof(u8), prgRomSize, romFile);
+	fread(chrRom, 0x2000 * sizeof(u8), chrRomSize, romFile);
+	
+
+	if (ppuMemSpace) {
+		if (chrRomSize) {
+			for (int i = 0; i < chrRomSize; i++) {
+				ppuMemSpace[i] = (u8*)calloc(0x2000, sizeof(u8)); // 1 slot for PT for now
+			}
 		}
 		else {
-			fread(PRGBanks[PRGbank], 1, 0x4000, romFile);
+			ppuMemSpace[0] = (u8*)calloc(0x2000, sizeof(u8)); // uxrom -- chr ram only
 		}
-		
-	}
-	//now we need to copy data from file to CHR banks
-	for (int CHRbank = 0; CHRbank < chrRomSize; CHRbank++) {
-		CHRBanks[CHRbank] = (u8*)malloc(0x2000 * sizeof(u8));
-		if (!CHRBanks[CHRbank]) {
-			printf("Error: can't allocate memory for CHR banks");
-			exit(1);
-		}
-		else {
-			fread(CHRBanks[CHRbank], 1, 0x2000, romFile);
+
+		for (int i = 0; i < 4; i++) {
+			ppuMemSpace[i + 1] = (u8*)calloc(0x400, sizeof(u8)); // 4 slots for NT for now
 		}
 	}
 
 	switch (mapperType) {
 	case 0:
-	case 1:
-		mapNROM();
+		mapper = new M_000_NROM();
 		break;
 	case 2:
-		mapUxROM();
+		mapper = new M_002_UxROM();
+		break;
+	case 3:
+		mapper = new M_003_CNROM();
 		break;
 	default:
 		printf("Error: mapper type %d not supported yet", mapperType);
 		exit(1);
 	}
+	fclose(romFile);
+	
+	mapper->setPrgRom(prgRom, prgRomSize);
+	mapper->setChrRom(chrRom, chrRomSize);
 }
 
-void Rom::mapNROM() {
-	memcpy(ram + 0x8000, PRGBanks[0], 0x4000);
-	if (prgRomSize == 1) {
-		memcpy(ram + 0xC000, PRGBanks[0], 0x4000);
+void Rom::callSxROM(u16 where, u8 what) {
+	static u8 chr0, chr1, prg; // MMC1 registers. chr and prg are 5-bit wide.
+	static u8 shiftReg;
+	static u8 shiftedBits; // how many times we have written to shift register
+
+	static u8 mirrorMode, prgMode;
+	static bool chrMode;
+
+	if (what & 0x80) {
+		//last bank is attached to CPU $C000-$FFFF
+		shiftedBits = 0;
 	}
-	else if (prgRomSize == 2) {
-		memcpy(ram + 0xC000, PRGBanks[1], 0x4000);
+	else {
+		shiftReg |= (what & 1) << 4;
+		shiftedBits++;
+		if (shiftedBits == 5) {
+			switch (where & 0x6000) {
+			case 0x0000: //ctrl
+				mirrorMode = shiftReg & 3;
+				chrMode = shiftReg & 0x10;
+				prgMode = (shiftReg >> 2) & 3;
+				break;
+			case 0x2000: //chr0
+				
+				break;
+			case 0x4000: //chr1
+				break;
+			case 0x6000: //prg
+				break;
+			default:
+				break;
+			}
+		}
 	}
-	chrRom = CHRBanks[0]? CHRBanks[0] : NULL;
+	
 }
 
-void Rom::mapUxROM() {
-	memcpy(ram + 0xC000, PRGBanks[prgRomSize - 1], 0x4000);
-	//memcpy(ram + 0x8000, PRGBanks[0], 0x4000);
-}
 
 void Rom::printInfo() {
 	printf("Mapper type: %d \n", mapperType);
 	printf("PRG ROM size: %d \n", prgRomSize);
 }
 
-u8* Rom::getChrRom() {
-	return chrRom;
-}
-
-u8 Rom::readPrgRom(u16 addr) {
-	return prgRom[addr];
-}
-
-void Rom::contactMappers(u16 where, u8 what)
-{
-	switch (mapperType) {
-	case 2:
-	//case 66:
-		memcpy(ram + 0x8000, PRGBanks[what], 0x4000);
-		//ram[0x8000] = what;
-		break;
-	default:
-		break;
-	}
-}
-
-u8 Rom::readChrRom(u16 addr) {
-	return chrRom[addr];
-}
 
 u8 Rom::getChrRomSize() {
 	return chrRomSize;
 }
 
-Rom::~Rom() {
-	free(prgRom);
-	free(chrRom);
+
+Mapper* Rom::getMapper() {
+	return mapper;
 }
 
-Rom::Rom() {}
+Rom::Rom(){}

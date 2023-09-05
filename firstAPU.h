@@ -1,8 +1,7 @@
 
 #pragma once
-#include "simpleCPU.hpp"
+#include "simpleCPU.h"
 #include <SDL.h>
-#include <corecrt_math.h>
 #include <stdio.h>
 
 #define APU_MODE_4_STEPS ((ram[0x4017] & 0x80) == 0x80)
@@ -22,7 +21,12 @@
 #define SWEEP_ENABLE_1 0b10000000
 #define SWEEP_PERIOD 0b01110000
 #define SHIFT_COUNT 0b00000111
+#define P1_ENABLE_FLAG ram[0x4001] & 0x80
+#define P2_ENABLE_FLAG ram[0x4005] & 0x80
+#define P1_NEGATE_FLAG ram[0x4001] & 0x08
+#define P2_NEGATE_FLAG ram[0x4005] & 0x08
 
-void apuTick(SDL_AudioDeviceID dev = NULL);
+void apuTick();
 void updateAPU(u16 where);
+bool firstAPUCycleHalf();
 extern u32 position;

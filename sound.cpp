@@ -32,5 +32,5 @@ int soundmain() {
     // Start the audio playback
     SDL_PauseAudioDevice(dev, 0);
     printf("\nAPU started.");
-
+    return 0;
 }

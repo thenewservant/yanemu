@@ -5,11 +5,10 @@
 
 #include <cstdio>
 #include <Windows.h>
-#include "simpleCPU.hpp"
-
+#include "simpleCPU.h"
 
 #define SCREEN_WIDTH 256
-#define SCREEN_HEIGHT 240
+#define SCREEN_HEIGHT 224
 
 extern u32* pixels; // real screen
 

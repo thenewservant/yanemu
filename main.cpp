@@ -1,9 +1,9 @@
 
 #include "ppu.h"
-#include "simpleCPU.hpp"
+#include "simpleCPU.h"
 #include "ScreenTools.h"
 #include <Windows.h>
-u8 WindowScaleFactor = 3;
+u8 WindowScaleFactor = 4;
 
 #define DEBUG
 
@@ -21,26 +21,26 @@ int main(int argc, char* argv[]) {
 		printf("\nError: can't open file\n");
 		exit(1);
 	}
-	
 
 #else
-	//const char* gameFile = "blargg\\11-stack.nes";
-	const char* gameFile = "mmages.nes";
+    //const char* gameFile = "blargg\\minipack.nes";
+	const char* gameFile = "\\castlevania.nes";
 	const char *gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
 	char* gamePath=(char*)malloc(100 *sizeof(char));
 	gamePath = strcpy(gamePath, gameDir);
 	gamePath = strcat(gamePath, gameFile);
 	FILE* testFile = fopen(gamePath, "rb");
 #endif
-	//SetProcessDPIAware();
-	Screen scr(WindowScaleFactor, gameFile);
+	SetProcessDPIAware();
+	Screen scr(WindowScaleFactor, "Game");
 	std::thread tsys(mainSYS, scr, testFile);
 
 	while (!scr.listener()) {
 
 	}
+	printf("\nExiting...\n");
 	
-	scr.endSDLApplication();
 	tsys.join();
+	scr.endSDLApplication();
 	return 0;
 }
