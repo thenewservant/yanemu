@@ -8,11 +8,17 @@
 #define BG_RENDERING	 (ram[0x2001] & 0b00001000)
 #define SPRITE_RENDERING (ram[0x2001] & 0b00010000)
 #define RENDERING		 (ram[0x2001] & 0b00011000)
+#define EITHER_RENDERING RENDERING
+#define BOTH_RENDERING   ((ram[0x2001] & 0b00011000) == 0b00011000)
+
+#define BG_LEFT_CLIP (ram[0x2001] & 0b00000010)
+#define SPRITE_LEFT_CLIP (ram[0x2001] & 0b00000100)
+#define LEFTMOST_SHOWN ((ram[0x2001] & 0b00000110) == 0b00000110)
+
 #define V (regs.v&0x3FFF) //since PPU address is only 15 bits wide
 
-//renderer constants
 #define NT_CYCLE 1
-#define AT_CYCLE 3
+#define AT_CYCLE 3 
 #define BG_LSB_CYCLE 5
 #define BG_MSB_CYCLE 7
 #define H_INC_CYCLE 0
@@ -86,8 +92,11 @@ public:
 	void updateOam();
 	void writeOAM(u8 what);
 	void writePPU(u8 what);
+	//write to 0x2000
 	void writePPUCTRL(u8 what);
+	//write to 0x2005
 	void writePPUSCROLL(u8 what);
+	//write to 0x2006
 	void writePPUADDR(u8 what);
 	u8 readOAM();
 	u8 rdPPU();

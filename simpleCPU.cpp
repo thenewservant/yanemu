@@ -110,7 +110,7 @@ u8 rd(u16 at) {
 	else if (at >= 0x2000 && at <= 0x3FFF) {
 		return rdRegisters(at & 0x2007);
 	}
-	else if (at >= 0x8000) {
+	else if (at >= 0x6000) {
 			return mapper->rdCPU(at);
 	}
 	switch (at) {
@@ -120,7 +120,7 @@ u8 rd(u16 at) {
 			keyLatchCtrl1 >>= 1;
 			keyLatchCtrl1 |= 0x80;
 		}
-		return ram[0x4016];
+		return 0x40 | ram[0x4016];
 	case 0x4017:
 		return ram[0x4017] & 0xFE;
 	default:
@@ -188,7 +188,7 @@ inline void wr(u16 where, u8 what) {
 		return;
 	}
 
-	else if ((where >= 0x8000) && (where <= 0xFFFF)) {
+	else if ((where >= 0x6000) && (where <= 0xFFFF)) {
 		//ram[where] = what;
 		mapper->wrCPU(where, what);
 		return;

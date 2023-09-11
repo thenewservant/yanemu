@@ -107,7 +107,7 @@ void PPU::updateOam() { // OAMDMA (0x4014) processing routine
 }
 
 void PPU::writeOAM(u8 what) {
-	if (!RENDERING) {
+	if (!EITHER_RENDERING) {
 		OAM[oamADDR] = what;
 		oamADDR++;
 	}
@@ -258,6 +258,7 @@ void PPU::BGRenderer() {
 	static u8 requiredShifting = 0; //used to shift attribute byte to the right position (according to v)
 
 	if (cycle < 257) {
+		
 		u16 shift = 1 << ((7 - regs.x));
 		u8 bgOpaque = ((patternSR[SR_LSB] & (shift<<8)) > 0) + 2 * ((patternSR[SR_MSB] & (shift<<8)) > 0);
 		u16 pixel = 0x3F00 + 4 * (((attributeSR[SR_LSB] & shift) > 0) + 2 * ((attributeSR[SR_MSB] & shift) > 0)) //offset to right palette
@@ -274,8 +275,13 @@ void PPU::BGRenderer() {
 		u16 tmppx = SPRITE_RENDERING && (spPixel & 3) ? spPixel : 0x3F10;
 		u32 spritePIX = colors[palette][rdVRAM(tmppx)];
 
-		if (spriteContainer[3][cycle - 1] && ((spriteOpaque > 0) && (bgOpaque > 0))) { //sprite 0 hit detection
-			ram[0x2002] |= 0b01000000;
+		if (spriteContainer[3][cycle - 1] && ((spriteOpaque > 0) && (bgOpaque > 0)) && BOTH_RENDERING) { //sprite 0 hit detection
+			if (((cycle-1) < 8) && LEFTMOST_SHOWN) {
+				ram[0x2002] |= 0b01000000;
+			}
+			else if ((cycle-1) >= 8) {
+				ram[0x2002] |= 0b01000000;
+			}
 		}
 
 		switch (VIDEO_MODE) {
@@ -328,11 +334,10 @@ void PPU::BGRenderer() {
 	}
 }
 
-bool oddFrame = false;
 void PPU::sequencer() {
 	
 	if (scanLine < 240) {
-		if (RENDERING) {
+		if (EITHER_RENDERING) {
 			if (SPRITE_RENDERING) {
 				spriteEvaluator();
 			}
@@ -347,6 +352,12 @@ void PPU::sequencer() {
 			
 			else if (cycle == 257) {
 				regs.v = (regs.v & ~0x41F) | (0x41F & regs.t); // hor (v) = hor(t)
+			}
+		}
+		else {
+			if ((V >= 0x3F00) && (cycle > 0) && (cycle < 257) && (scanLine>7) && (scanLine <232)) {
+
+			pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] = colors[1][rdVRAM(V)];
 			}
 		}
 
@@ -365,7 +376,7 @@ void PPU::sequencer() {
 		}
 	}
 	else if (scanLine == 261) {
-		if (RENDERING) {
+		if (EITHER_RENDERING) {
 			if ((cycle < 256) && ((cycle % 8) == 0)) {
 				incCoarseX();
 			}
@@ -394,6 +405,7 @@ void PPU::sequencer() {
 }
 
 void PPU::tick() {
+	static bool oddFrame = false;
 	if (cycle / 341) {
 		scanLine++;
 		cycle = 0;
@@ -403,7 +415,7 @@ void PPU::tick() {
 			cycle = 0;
 			scanLine = 0;
 		}
-		oddFrame ^= 1;
+		//oddFrame ^= 1;
 	}
 	scanLine %= 262;
 	sequencer();
@@ -417,16 +429,10 @@ PPU::PPU(u32* px, Screen sc, Rom rom) :OAM{}, internalPPUreg(0), frame(0), cycle
 	printf("Mirroring type: %s\n", (mirror == HORIZONTAL) ? "Horizontal" : "Vertical");
 }
 
-void PPU::writePPU(u8 what) {
-		wrVRAM(what);
-		incPPUADDR();
-}
-
 void PPU::writePPUCTRL(u8 what) {
 	regs.t = ((what & 0x3) << 10) | (regs.t & 0x73FF);
 }
 
-//write to 0x2005
 void PPU::writePPUSCROLL(u8 what) {
 	if (regs.w == 0) {
 		regs.t = ((what & ~0b111) >> 3) | (regs.t & 0b111111111100000);
@@ -439,7 +445,6 @@ void PPU::writePPUSCROLL(u8 what) {
 	regs.w ^= 1;
 }
 
-//write to 0x2006
 void PPU::writePPUADDR(u8 what) {
 	if (regs.w == 0) {
 		regs.t = ((what & 0b111111) << 8) | (regs.t & 0b00000011111111);
@@ -449,6 +454,11 @@ void PPU::writePPUADDR(u8 what) {
 		regs.v = regs.t;
 	}
 	regs.w ^= 1;
+}
+
+void PPU::writePPU(u8 what) {
+	wrVRAM(what);
+	incPPUADDR();
 }
 
 u8 PPU::rdPPU() {

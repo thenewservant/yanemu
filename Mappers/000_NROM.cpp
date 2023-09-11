@@ -28,16 +28,20 @@ void M_000_NROM::setChrRom(u8* chrRom, u8 CHRsize) {
 }
 
 u8 M_000_NROM::rdCPU(u16 where) {
-	if (where < 0xC000) {
+	switch (where & 0xC000) {
+	case 0x8000:
 		return prgBanks[0][where];
-	}
-	else {
+	case 0xC000:
 		return prgBanks[1][where];
+	default:
+		return ramBank[where - 0x6000];
 	}
 }
 
 void M_000_NROM::wrCPU(u16 where, u8 what) {
-	return;
+	if (where < 0x8000) {
+		ramBank[where-0x6000] = what;
+	}
 }
 
 u8 M_000_NROM::rdPPU(u16 where) {

@@ -67,6 +67,9 @@ Rom::Rom(FILE* romFile, u8* ram) {
 	case 0:
 		mapper = new M_000_NROM();
 		break;
+	case 1:
+		mapper = new M_001_SxROM();
+		break;
 	case 2:
 		mapper = new M_002_UxROM();
 		break;
@@ -82,44 +85,6 @@ Rom::Rom(FILE* romFile, u8* ram) {
 	mapper->setPrgRom(prgRom, prgRomSize);
 	mapper->setChrRom(chrRom, chrRomSize);
 }
-
-void Rom::callSxROM(u16 where, u8 what) {
-	static u8 chr0, chr1, prg; // MMC1 registers. chr and prg are 5-bit wide.
-	static u8 shiftReg;
-	static u8 shiftedBits; // how many times we have written to shift register
-
-	static u8 mirrorMode, prgMode;
-	static bool chrMode;
-
-	if (what & 0x80) {
-		//last bank is attached to CPU $C000-$FFFF
-		shiftedBits = 0;
-	}
-	else {
-		shiftReg |= (what & 1) << 4;
-		shiftedBits++;
-		if (shiftedBits == 5) {
-			switch (where & 0x6000) {
-			case 0x0000: //ctrl
-				mirrorMode = shiftReg & 3;
-				chrMode = shiftReg & 0x10;
-				prgMode = (shiftReg >> 2) & 3;
-				break;
-			case 0x2000: //chr0
-				
-				break;
-			case 0x4000: //chr1
-				break;
-			case 0x6000: //prg
-				break;
-			default:
-				break;
-			}
-		}
-	}
-	
-}
-
 
 void Rom::printInfo() {
 	printf("Mapper type: %d \n", mapperType);

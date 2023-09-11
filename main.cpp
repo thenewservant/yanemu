@@ -23,8 +23,9 @@ int main(int argc, char* argv[]) {
 	}
 
 #else
-    //const char* gameFile = "blargg\\minipack.nes";
-	const char* gameFile = "\\castlevania.nes";
+
+    //const char* gameFile = "blargg\\sprite\\01.basics.nes";
+	const char* gameFile = "\\oc.nes";
 	const char *gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
 	char* gamePath=(char*)malloc(100 *sizeof(char));
 	gamePath = strcpy(gamePath, gameDir);

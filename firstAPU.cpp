@@ -71,23 +71,7 @@ float pulse1() {
 			p1Stat %= 8;
 		}
 	}
-	return 1.0*dutyLut[dutyCycle1][p1Stat] * envelope[0];
-}
-
-bool dutylutBis[] = { 0,0,0,0,1,1,1,1 };
-float p1bis() {
-	static u16 p12timer = 50;
-	static u8 p12Stat = 0;
-	if (p12timer) {
-		p12timer -= 1;
-	}
-	else {
-		p12timer = 500;
-		p12Stat += 1;
-		p12Stat %= 8;
-	}
-
-	return 1.0*dutylutBis[p12Stat] *14;
+	return dutyLut[dutyCycle1][p1Stat] * envelope[0];
 }
 
 u8 pulse2() {
@@ -111,8 +95,10 @@ u8 triStat = 0;
 bool linCntReloadFlag = false;
 float lastVal = 0;
 
+
 float triangle() {
-	if (lengthCounter[2] && ~(status & 0b00000100) && triLinCurrent) {
+	static u16 lastVal = 0;
+	if (lengthCounter[2] && ~(status & 0b00000100) && triLinCurrent && (timer[2] > 1)) {
 		if (tritimer) {
 			tritimer -= 1;
 		}
@@ -121,10 +107,10 @@ float triangle() {
 			triStat += 1;
 			triStat %= 32;	
 		}
-		return triangleLUT[triStat] ;//output is in range [0-15];
+		lastVal =  triangleLUT[triStat];
+		return triangleLUT[triStat];
 	}
-
-	return triangleLUT[triStat];
+	return (lastVal)? lastVal-- : 0;
 }
 
 float noise() {
@@ -145,7 +131,7 @@ float noise() {
 }
 
 u8 dmc() {
-	return ram[0x4011] & 0x7F;
+	return 0;// ram[0x4011] & 0x7F;
 }
 
 void tickLengthCounters() {
@@ -234,7 +220,7 @@ void apuTick() {
 	
 	ticks += 0.5;
 	float tri = triangle();
-	if (ticks == (int)ticks) {
+	if ((ticks - (int)ticks) < 0.01) {
 		float p1 = pulse1();
 		float p2 = pulse2();
 		float pOut =95.88/((8128.0/(p1 + p2))+100);
@@ -319,12 +305,11 @@ void updateAPU(u16 where) {
 		break;
 	case 0x4002:
 		timer[0] = ram[0x4002] | ((ram[0x4003] & TIMER_HIGH) << 8); //p1
-		p1timer = timer[0];
+
 		break;
 	case 0x4003:
 		lengthCounter[0] = lengthCounterLUT[((ram[0x4007] >> 3) & 0b00011111)];
 		timer[0] = ram[0x4002] | ((ram[0x4003] & TIMER_HIGH) << 8); //p1
-		p1timer = timer[0];
 		p1Stat = 0;
 		break;
 
@@ -342,12 +327,11 @@ void updateAPU(u16 where) {
 		break;
 	case 0x4006:
 		timer[1] = ram[0x4006] | ((ram[0x4007] & TIMER_HIGH) << 8);	//p2
-		p2timer = timer[1];
+		timer[1];
 		break;
 	case 0x4007:
 		lengthCounter[1] = lengthCounterLUT[((ram[0x4007] >> 3) & 0b00011111)];
 		timer[1] = ram[0x4006] | ((ram[0x4007] & TIMER_HIGH) << 8); //p1
-		p2timer = timer[1];
 		p2Stat = 0;
 		break;
 
