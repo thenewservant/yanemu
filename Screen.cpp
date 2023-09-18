@@ -11,14 +11,13 @@ void Screen::initSDLScreen() {
 
 	window = SDL_CreateWindow(tt, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH * ScreenScaleFactor, SCREEN_HEIGHT * ScreenScaleFactor, SDL_WINDOW_SHOWN);
 	
-	
-	
+	SDL_SetWindowShape(window, NULL, NULL);
+
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
-	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	// Create SDL texture
-	
-	surface = SDL_CreateRGBSurfaceWithFormat(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_PIXELFORMAT_RGBA8888);
-	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBA8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+	surface = SDL_CreateRGBSurfaceWithFormat(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_PIXELFORMAT_RGBX8888);
+	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
 	
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
@@ -36,8 +35,6 @@ void Screen::endSDLApplication() {
 	SDL_Quit();
 }
 
-
-
 Screen::Screen(u8 scaleFact) {
 	//pixels = (u32*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u32));
 	status = 0;
@@ -53,15 +50,12 @@ Screen::Screen(u8 scaleFact, const char* title) {
 	initSDLScreen();
 }
 
-u32* Screen::getPixelsPointer() {
+u32* Screen::getPixels() {
 	return pixels;
 }
 
 void Screen::updateScreen() {
 	SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
-
-	// Render texture and present on screen
-
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
 }
@@ -69,6 +63,9 @@ void Screen::updateScreen() {
 
 void Screen::checkPressKey(SDL_Event event) {
 	switch (event.key.keysym.sym) {
+	case SDLK_y:
+		status |= 0b100000000;
+		break;
 	case SDLK_LEFT:
 		status |= 0b01000000;
 		break;
@@ -109,6 +106,10 @@ void Screen::checkPressKey(SDL_Event event) {
 
 void Screen::checkRaiseKey( SDL_Event event) {
 	switch (event.key.keysym.sym) {
+		
+	case SDLK_y:
+		status &= ~0b100000000;
+		break;
 	case SDLK_LEFT:
 		status &= ~0b01000000;
 		break;
@@ -143,16 +144,21 @@ u8 Screen::listener() {
 	while (SDL_PollEvent(&keyEvent)) {
 		switch (keyEvent.type) {
 		case SDL_KEYDOWN:
-				checkPressKey( keyEvent);
-				pressKey(status, 0);
+			checkPressKey(keyEvent);
+			pressKey(status);
 			break;
 		case SDL_KEYUP:
-			checkRaiseKey( keyEvent);
-			pressKey(status, 0);
+			checkRaiseKey(keyEvent);
+			pressKey(status);
+			break;
+		case SDL_DROPFILE:
+			printf("File dropped: %s\n", keyEvent.drop.file);
+			newFilePath = keyEvent.drop.file;
+			return 10;
 			break;
 		case SDL_WINDOWEVENT:
 			switch (keyEvent.window.event) {
-			case SDL_WINDOWEVENT_CLOSE: 
+			case SDL_WINDOWEVENT_CLOSE:
 				printf("Window closed\n");
 				exit(0);
 			default:
@@ -166,6 +172,7 @@ u8 Screen::listener() {
 	SDL_Delay(2);
 	return 0;
 }
+
 SDL_Window* Screen::getWindow() {
 	return window;
 }
@@ -178,6 +185,8 @@ Screen::Screen() {
 
 }
 
-
+char* Screen::getFilePath() {
+	return newFilePath;
+}
 
 

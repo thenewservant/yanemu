@@ -47,7 +47,7 @@ typedef uint16_t u16;
 typedef uint32_t u32;
 typedef uint64_t u64;
 
-extern uint8_t* ram;
+extern u8 ram[];
 extern u8 mirror;
 
 static const uint8_t _6502InstBaseCycles[] = {
@@ -84,7 +84,7 @@ public:
 
 u8 rd(u16 at);
 void _nmi();
-void pressKey(u8 pressed, u8 released);
+void pressKey(u16 pressed);
 void specialCom();
 void addCycle();
 void manualIRQ();

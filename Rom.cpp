@@ -81,7 +81,6 @@ Rom::Rom(FILE* romFile, u8* ram) {
 		exit(1);
 	}
 	fclose(romFile);
-	
 	mapper->setPrgRom(prgRom, prgRomSize);
 	mapper->setChrRom(chrRom, chrRomSize);
 }

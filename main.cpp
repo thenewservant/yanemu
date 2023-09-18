@@ -3,13 +3,14 @@
 #include "simpleCPU.h"
 #include "ScreenTools.h"
 #include <Windows.h>
+
 u8 WindowScaleFactor = 4;
 
-#define DEBUG
+#define MANUAL
 
 int main(int argc, char* argv[]) {
-
-#ifndef DEBUG
+	SetProcessDPIAware();
+#ifdef CLI
 	FreeConsole();
 	if (argc < 2) {
 		printf("\nnes ROM expected!");
@@ -21,23 +22,33 @@ int main(int argc, char* argv[]) {
 		printf("\nError: can't open file\n");
 		exit(1);
 	}
-
-#else
-
-    //const char* gameFile = "blargg\\sprite\\01.basics.nes";
-	const char* gameFile = "\\oc.nes";
+#endif
+#ifdef MANUAL
+    const char* gameFile = "blargg\\sprite\\07.screen_bottom.nes";
+	//const char* gameFile = "\\uxrom\\.nes";
 	const char *gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
 	char* gamePath=(char*)malloc(100 *sizeof(char));
 	gamePath = strcpy(gamePath, gameDir);
 	gamePath = strcat(gamePath, gameFile);
-	FILE* testFile = fopen(gamePath, "rb");
+	FILE* droppedFile = fopen(gamePath, "rb");
+	Screen scr(WindowScaleFactor, "Game");
 #endif
+#ifdef DROP
 	SetProcessDPIAware();
 	Screen scr(WindowScaleFactor, "Game");
-	std::thread tsys(mainSYS, scr, testFile);
-
 	while (!scr.listener()) {
+		SDL_Delay(1);
+	}
+	FILE* droppedFile = fopen(scr.getFilePath(), "rb");
 
+#endif
+
+	std::thread tsys(mainSYS, scr, droppedFile);
+
+	u8 listn = scr.listener();
+	while (!(listn & 1)) {
+		SDL_Delay(1);
+		listn = scr.listener();
 	}
 	printf("\nExiting...\n");
 	

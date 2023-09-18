@@ -18,12 +18,12 @@ u8* u8tmp; //multi-purpose temp u8 pointer;
 u8 m = 0; // temp memory for cmp computing
 
 // 6502 registers
-u8 ac, xr, yr, sr = SR_RST, sp = 0xFD;
-u16 pc;
+static u8 ac, xr, yr, sr = SR_RST, sp = 0xFD;
+static u16 pc;
 bool jammed = false; // is the cpu jammed because of certain instructions?
 
 
-u8* ram;
+u8 ram[0x10000];
 u8* prog;
 u32 counter = 0;
 u32 cycles = 0;
@@ -37,7 +37,6 @@ u8 keys2 = 0;
 
 u8 keyLatchCtrl1 = 0; // controller 1 buttons
 u8 keyLatchCtrl2 = 0; // controller 2 buttons
-u8 keyLatchStep = 0; // how many buttons did we show the CPU so far?
 
 
 Rom MainRom;
@@ -77,8 +76,9 @@ void specialCom() {
 	printf("The I Flag is %s\n", (sr & 0b00000100) >> 2 ? "SET" : "CLEAR");
 }
 
-void pressKey(u8 pressed, u8 released) {
-	keys1 = pressed;
+void pressKey(u16 pressed) {
+	keys1 = (u8)pressed;
+	keys2 = (u8)(pressed >> 8);
 }
 
 //mainly for OAMDMA alignment.
@@ -87,13 +87,9 @@ void addCycle() {
 }
 
 u8 rdRegisters(u16 where) {
-	u8 tmp;
 	switch (where) {
 	case 0x2002:
-		ppu->regs.w = 0;
-		tmp = ram[0x2002];
-		ram[0x2002] &= ~0b10000000;
-		return tmp;
+		return ppu->readPPUSTATUS();
 	case 0x2004:
 		return ppu->readOAM();
 	case 0x2007:
@@ -121,8 +117,13 @@ u8 rd(u16 at) {
 			keyLatchCtrl1 |= 0x80;
 		}
 		return 0x40 | ram[0x4016];
-	case 0x4017:
-		return ram[0x4017] & 0xFE;
+	case 0x4017: 
+		if (latchCommandCtrl2) {
+			ram[0x4017] = ram[0x4017] & 0xFE | (keyLatchCtrl2) & 1;
+			keyLatchCtrl2 >>= 1;
+			keyLatchCtrl2 |= 0x80;
+		}
+		return 0x40 | ram[0x4017];
 	default:
 		return ram[at];
 	}	
@@ -130,6 +131,7 @@ u8 rd(u16 at) {
 
 inline void writeRegisters(u16 where, u8 what) {
 	switch (where) {
+	//total shit happening at 0x2000.
 	case 0x2000:
 		ppu->writePPUCTRL(what);
 		ram[0x2000] = what; // WHY DOES THAT EVEN WORK ?!!!!!
@@ -162,36 +164,17 @@ inline void writeRegisters(u16 where, u8 what) {
 	}
 }
 
-/*
-inline void wr(u16 where, u8 what) {
-switch (where & 0xE000) {
-	case 0x0000: // address is between 0x0000 and 0x1FFF, that's 2KB internal RAM
-		ram[v & 0x07FF] = what;
-		return;
-	case 0x2000: // address is between 0x2000 and 0x3FFF, that's CPU memory mapped registers
-		writeRegisters(where & 0x2007, what);
-		return;
-	default:
-		break;
-	}
-	}
-	*/
-
 inline void wr(u16 where, u8 what) {
 	if (where <= 0x1FFF) {
 		ram[where & 0x07FF] = what;
-		return;
 	}
 
 	else if (where >= 0x2000 && where <= 0x3FFF) {
 		writeRegisters(where&0x2007,what);
-		return;
 	}
 
 	else if ((where >= 0x6000) && (where <= 0xFFFF)) {
-		//ram[where] = what;
 		mapper->wrCPU(where, what);
-		return;
 	}
 
 	else {
@@ -200,18 +183,21 @@ inline void wr(u16 where, u8 what) {
 			ram[0x4014] = what;
 			ppu->updateOam();
 			cycles += 513;
-			break;
+			return;
 		case 0x4016:
 			latchCommandCtrl1 = !(what & 1);
+			latchCommandCtrl2 = !(what & 1);
 			if (latchCommandCtrl1) {
 				keyLatchCtrl1 = keys1;
 			}
-			keyLatchStep = 0;
-			break;
+			if (latchCommandCtrl2) {
+				keyLatchCtrl2 = keys2;
+			}
+			return;
 		}
 
-		ram[where] = what;
 		if ((where >= 0x4000) && (where <= 0x4017)) {
+			ram[where] = what;
 			updateAPU(where);
 		}
 	}
@@ -253,7 +239,7 @@ inline void check_CV() {
 
 void _nmi() {
 	wr(STACK_END | sp--, pc >> 8);
-	wr(STACK_END | sp--, pc);
+	wr(STACK_END | sp--, (u8)pc);
 	wr(STACK_END | sp--, sr);
 	sr |= I_FLAG;
 	pc = (rd(0xFFFB) << 8) | rd(0xFFFA);
@@ -263,6 +249,7 @@ void _rst() {
 	sp -= 3;
 	sr |= I_FLAG;
 	pc = (rd(0xFFFD) << 8) | rd(0xFFFC);
+	ram[0x4015] = 0;
 }
 //adc core procedure -- termB is the operand as termA is always ACCUMULATOR
 inline void _adc() {
@@ -1595,6 +1582,7 @@ Cpu::Cpu(u8* ram, u8* pr) {
 	mem = ram;
 	prog = pr;
 	pc = (rd(0xFFFD) << 8) | rd(0xFFFC);
+
 }
 
 void Cpu::afficher() {
@@ -1604,13 +1592,10 @@ void Cpu::afficher() {
 	}
 }
 
-u32 cyclesBefore = 0;
-u32 toAbsorb = 0;
 u8 masterClockCycles = 0;
 
 int mainSYS(Screen scr, FILE* testFile) {
 
-	ram = (u8*)calloc((1 << 16), sizeof(u8));
 	
 	prog = ram;
 
@@ -1619,7 +1604,7 @@ int mainSYS(Screen scr, FILE* testFile) {
 	MainRom.printInfo();
 	mapper = MainRom.getMapper();
 	Cpu f(ram, ram);
-	PPU p(scr.getPixelsPointer(), scr, MainRom);
+	PPU p(scr.getPixels(), scr, MainRom);
 	ppu = &p;
 	
 	soundmain();
@@ -1632,29 +1617,20 @@ int mainSYS(Screen scr, FILE* testFile) {
 		printf("\nVideo: NTSC");
 		while (1) {
 			
-			while ((SDL_GetQueuedAudioSize(dev) / sizeof(float)) < 4000) {
+			while ((SDL_GetQueuedAudioSize(dev) / sizeof(float)) < 1*4470) {
 				for (int i = 0; i < 59561 * 1; i++) {
 					nbcyc++;
-					if (!(masterClockCycles & 3)) { // !(x&3) <=> x%4==0
-						ppu->tick();
-					}
-					if (masterClockCycles == 12) {
+					ppu->tick();
+					
+					if (masterClockCycles == 3) {
 
-						if (!(toAbsorb - cyclesBefore)) {
-							cyclesBefore = cycles;
-
-							cycles += _6502InstBaseCycles[rd(pc)];
-							comCount[rd(pc)]++;
-							
-							opCodePtr[rd(pc++)]();
-							if (!(sr & I_FLAG)) {
-								//printf("I_flag OFF\n");
-							}
-							toAbsorb = cycles - 1; // current tick is  taken into account, ofc
+						if (cycles==0) {
+							u8 op = rd(pc++);
+							cycles += _6502InstBaseCycles[op];
+							comCount[op]++;
+							opCodePtr[op]();
 						}
-						else {
-							toAbsorb--;
-						}
+						cycles--;
 
 						apuTick();
 						masterClockCycles = 0;
@@ -1662,7 +1638,7 @@ int mainSYS(Screen scr, FILE* testFile) {
 					masterClockCycles++;
 				}
 
-				if (nbcyc == 21441960) {
+				if (nbcyc == 5360490) {
 					nbcyc = 0;
 					auto t1 = Time::now();
 					fsec fs = t1 - t0;
@@ -1685,4 +1661,5 @@ int mainSYS(Screen scr, FILE* testFile) {
 		printf("rom ERROR!");
 		exit(1);
 		}
+	free(ppu);
 	}

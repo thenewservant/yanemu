@@ -2,13 +2,15 @@
 #ifndef SCREENTOOLS_H
 #define SCREENTOOLS_H
 #include <SDL.h>
-
 #include <cstdio>
 #include <Windows.h>
 #include "simpleCPU.h"
 
+
 #define SCREEN_WIDTH 256
 #define SCREEN_HEIGHT 224
+
+#define FILE_DROPPED 184
 
 extern u32* pixels; // real screen
 
@@ -20,17 +22,17 @@ private:
 	SDL_Texture* texture;
 	SDL_Surface* surface;
 	u8 ScreenScaleFactor;
-	u8 status;
+	u16 status;
 	const char* title = "Yanemu";
 	SDL_Event keyEvent;
 	void initSDLScreen();
-	//void threadWindowOpen();
+	char* newFilePath;
 
 public:
 	Screen();
 	Screen(u8 scaleFact);
 	Screen(u8 scaleFact, const char* title);
-	u32* getPixelsPointer();
+	u32* getPixels();
 	void updateScreen();
 	void checkPressKey(SDL_Event event);
 	void checkRaiseKey(SDL_Event event);
@@ -38,6 +40,7 @@ public:
 	u8 listener();
 	SDL_Window* getWindow();
 	void writePixel(u32 where, u32 what);
+	char* getFilePath();
 };
 
 extern Screen scr;

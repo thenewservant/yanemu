@@ -15,10 +15,9 @@ int soundmain() {
 
     // Set the audio callback function
     SDL_AudioSpec desired_spec, obtained_spec;
-    desired_spec.freq = 40260;
+    desired_spec.freq = 44700;
     desired_spec.format = AUDIO_F32SYS;
     desired_spec.channels = 1;
-    desired_spec.samples = 4004;
     desired_spec.callback = NULL;// (SDL_AudioCallback)audio_callback;
     desired_spec.userdata = NULL;
 

@@ -1,29 +1,8 @@
 #include "firstAPU.h"
 #include "sound.h"
+
 // minimal APU excluding additional / game-specific sound channels.
-/*
-static const u8 dutyLut[][8] = { {0, 1, 0, 0, 0, 0, 0, 0},
-								{0, 1, 1, 0, 0, 0, 0, 0},
-								{0, 1, 1, 1, 1, 0, 0, 0},
-								{1, 0, 0, 1, 1, 1, 1, 1} };*/
 
-static const u8 dutyLut[][8] = { {0, 1, 0, 0, 0, 0, 0, 0},
-								{0, 1, 1, 0, 0, 0, 0, 0},
-								{0, 1, 1, 1, 1, 0, 0, 0},
-								{1, 0, 0, 1, 1, 1, 1, 1} };
-
-static const u8 lengthCounterLUT[] = { 10, 254, 20, 2, 40, 4, 80, 6, 160, 8,
-									  60, 10, 14, 12, 26, 14, 12, 16, 24,
-									  18, 48, 20, 96, 22, 192, 24, 72, 26, 16, 28, 32, 30 };
-
-static const u8 triangleLUT[] = { 15,14,13,12,11,10,9,8,7,6,5,4,3,2,1,0,
-							0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15 };
-
-static const u16 noiseTimerLUT[][16] = { { 4, 8, 14, 30, 60, 88, 118, 148, 188, 236, 354, 472, 708, 944, 1890, 3778 },
-										 {4, 8, 16, 32, 64, 96, 128, 160, 202, 254, 380, 508, 762, 1016, 2034, 4068} }; // 0 = PAL, 1 = NTSC
-
-static const u16 dmcTimerLUT[][16] = { {398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118,  98,  78,  66,  50},
-									   {428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106,  84,  72,  54} };//0 = PAL, 1 = NTSC
 
 u8 dutyCycle1, dutyCycle2;
 u16 timer[4]; // timers for pulse 1 & 2, and triangle
@@ -32,8 +11,7 @@ u16 p2timer = timer[1];
 u16 tritimer = timer[2];
 u16 noisetimer = timer[3];
 
-u8 volume[4]
-, lengthCounter[4] // length counters for pulse 1 & 2, triangle, and noise
+u8 lengthCounter[4] // length counters for pulse 1 & 2, triangle, and noise
 , envelope[4] //envelope of pulse1, pulse2 and noise
 , p1Halt, p2Halt, triHalt, noiseHalt;
 
@@ -43,7 +21,7 @@ u8 triLinCurrent;
 u16 noiseBarrel =0x7FFF; //15 bits, init with 1's
 u8 noiseMode; // >0: bit 6 xor'ed with bit 0; 0: bit 1 xor'ed with bit 0
 
-u8 status = 0;
+u8 status = 0; // status register at 0x4015
 
 u8 p1Stat = 0; //position in the duty cycle
 u8 p2Stat = 0;
@@ -61,7 +39,7 @@ float pulse1() {
 	if (timer[0] < 8) {
 		return 0;
 	}
-	else if (lengthCounter[0] && ~(status & 0b00000001)) {
+	else if (lengthCounter[0] && (status & 0b00000001)) {
 		if (p1timer) {
 			p1timer -= 1;
 		}
@@ -78,7 +56,7 @@ u8 pulse2() {
 	if (timer[1] < 8) {
 		return 0;
 	}
-	else if (lengthCounter[1] && ~(status & 0b00000010)) {
+	else if (lengthCounter[1] && (status & 0b00000010)) {
 		if (p2timer) {
 			p2timer -= 1;
 		}
@@ -98,7 +76,7 @@ float lastVal = 0;
 
 float triangle() {
 	static u16 lastVal = 0;
-	if (lengthCounter[2] && ~(status & 0b00000100) && triLinCurrent && (timer[2] > 1)) {
+	if (lengthCounter[2] && (status & 0b00000100) && triLinCurrent && (timer[2] > 1)) {
 		if (tritimer) {
 			tritimer -= 1;
 		}
@@ -110,12 +88,12 @@ float triangle() {
 		lastVal =  triangleLUT[triStat];
 		return triangleLUT[triStat];
 	}
-	return (lastVal)? lastVal-- : 0;
+	return lastVal;
 }
 
 float noise() {
 	static bool feedback;
-	if (lengthCounter[3] && ~(status & 0b00001000)) {
+	if (lengthCounter[3] && (status & 0b00001000)) {
 		if (noisetimer) {
 			noisetimer--;
 		}
@@ -130,34 +108,121 @@ float noise() {
 	return 1.0 * feedback * envelope[3];
 }
 
+
+constexpr u16 dmcBaseAdress = 0xC000;
+
+bool directDMCOverride = false;
+u8 dmcOutputLevel = 0;
+u8 dmcRateIndex = 0;
+u16 dmcSampleAdress = 0;
+u16 dmcSampleLength = 0;
+bool dmcLoop = false;
+bool dmcIrqFlag = false;
+u16 remainingBytes = 1;
+
+void incDMCSampleAdress() {
+	if (dmcSampleAdress == 0xFFFF) {
+		dmcSampleAdress = 0x8000;
+	}
+	else {
+		dmcSampleAdress++;
+	}
+}
+
 u8 dmc() {
-	return 0;// ram[0x4011] & 0x7F;
+	static u16 dmcTimer = 0;
+	static u8 oldLevel = 0;
+	static u8 sampleBuffer = 0;
+	static u8 bitsRemaining = 0;
+	static bool silenceFlag = false;
+	if (status & 0b00010000) {
+
+		if (!bitsRemaining && (remainingBytes != 0)) {
+			sampleBuffer = rd(dmcSampleAdress);
+			incDMCSampleAdress();
+			remainingBytes--;
+		}
+		else if (remainingBytes == 0) {
+			sampleBuffer = 0;
+		}
+		if (bitsRemaining == 0) {
+			bitsRemaining = 8;
+			silenceFlag = false;
+		}
+
+		if (remainingBytes == 0) {
+			if (dmcLoop) {
+				remainingBytes = dmcSampleLength | (ram[0x4012] << 6);
+				dmcSampleAdress = dmcBaseAdress;
+			}
+			else if (dmcIrqFlag) {
+				//setDMCInterruptFlag();
+			}
+		}
+
+		// OUTPUT unit
+
+		//new cycle:
+
+		if (!remainingBytes) {
+			silenceFlag = true;
+		}
+		else {
+			silenceFlag = false;
+		}
+
+		if (dmcTimer) {
+			dmcTimer--;
+		}
+		else {
+			dmcTimer = dmcTimerLUT[VIDEO_MODE][dmcRateIndex];
+			if (!silenceFlag) {
+				if (sampleBuffer & 1) {
+					if (dmcOutputLevel <= 125) {
+						dmcOutputLevel += 2;
+					}
+				}
+				else {
+					if (dmcOutputLevel >= 2) {
+						dmcOutputLevel -= 2;
+					}
+				}
+				sampleBuffer >>= 1;
+				bitsRemaining--;
+			}
+		}
+	}
+	return  dmcOutputLevel ;
 }
 
 void tickLengthCounters() {
-	if (!lengthCounter[0]) {
-		ram[0x4015] &= ~0b00000001;
-	}
-	else if (!p1Halt) {
+	if (lengthCounter[0] && !p1Halt) {
 		lengthCounter[0] -= 1;
 	}
+	else if (!lengthCounter[0]) {
+		ram[0x4015] &= ~0b00000001;
+	}
 
-	if (!lengthCounter[1]) {
-		ram[0x4015] &= ~0b00000010; 
-	}else if (!p2Halt) {
+	if (lengthCounter[1] && !triHalt) {
 		lengthCounter[1] -= 1;
+
+	}
+	else if (!lengthCounter[1]) {
+		ram[0x4015] &= ~0b00000010;
 	}
 
-	if (!lengthCounter[2]) {
-		ram[0x4015] &= ~0b00000100; 
-	} else if (!triHalt){
-	lengthCounter[2] -= 1;
+	if (lengthCounter[2] && !triHalt) {
+		lengthCounter[2] -= 1;
+	}
+	else if (!lengthCounter[2]) {
+		ram[0x4015] &= ~0b00000100;
 	}
 
-	if (!lengthCounter[3]) {
-		ram[0x4015] &= ~0b00001000; 
-	} else if (!noiseHalt) {
+	if (lengthCounter[3] && !noiseHalt) {
 		lengthCounter[3] -= 1;
+	}
+	else if (!lengthCounter[3]) {
+		ram[0x4015] &= ~0b00001000;
 	}
 }
 
@@ -220,17 +285,17 @@ void apuTick() {
 	
 	ticks += 0.5;
 	float tri = triangle();
+	float delta = dmc();
 	if ((ticks - (int)ticks) < 0.01) {
 		float p1 = pulse1();
 		float p2 = pulse2();
-		float pOut =95.88/((8128.0/(p1 + p2))+100);
+		
 		float ns = noise();
-		float delta = dmc();
-		float tnd = 159.79 / ((1 / ((tri / 8227) + (ns /12241) + (delta/22638))) + 100);
 
-		float sample = (pOut + tnd);
-
-		if (((int)(2*ticks) % 44) == 0) {
+		if (((int)(2 * ticks) % 40) == 0) {
+			float pOut = 95.88 / ((8128.0 / (p1 + p2)) + 100);
+			float tnd = 159.79 / ((1 / ((tri / 8227) + (ns /12241) + (delta/22638))) + 100);
+			float sample = (pOut + tnd);
 			SDL_QueueAudio(dev, &sample, sizeof(float));
 		}
 	}
@@ -305,7 +370,6 @@ void updateAPU(u16 where) {
 		break;
 	case 0x4002:
 		timer[0] = ram[0x4002] | ((ram[0x4003] & TIMER_HIGH) << 8); //p1
-
 		break;
 	case 0x4003:
 		lengthCounter[0] = lengthCounterLUT[((ram[0x4007] >> 3) & 0b00011111)];
@@ -327,7 +391,6 @@ void updateAPU(u16 where) {
 		break;
 	case 0x4006:
 		timer[1] = ram[0x4006] | ((ram[0x4007] & TIMER_HIGH) << 8);	//p2
-		timer[1];
 		break;
 	case 0x4007:
 		lengthCounter[1] = lengthCounterLUT[((ram[0x4007] >> 3) & 0b00011111)];
@@ -364,9 +427,42 @@ void updateAPU(u16 where) {
 		lengthCounter[3] = lengthCounterLUT[(ram[0x400F] >> 3) & 0b00011111];
 		break;
 
+	//DMC
+	case 0x4010:
+		dmcLoop = ram[0x4010] & 0x40;
+		dmcIrqFlag = ram[0x4010] & 0x80;
+		dmcRateIndex = ram[0x4010] & 0x0F;
+		break; 
+	//DMC DIRECT OUTPUT LEVEL
+	case 0x4011:
+		dmcOutputLevel = ram[0x4011] & 0x7F;
+		break;
+	case 0x4012:
+		dmcSampleAdress = dmcBaseAdress | (ram[0x4012] << 6);
+
+		break;
+	case 0x4013:
+		dmcSampleLength = 0xFFF & ((ram[0x4013] << 4) + 1);
+		remainingBytes = dmcSampleLength;
+		break;
 	//GENERAL
-	case 0x4015:
+	case 0x4015: 
+
 		status = ram[0x4015];
+
+		if (!(status & 0b00000001)) {
+			p1Halt = true;
+		}
+		if (!(status & 0b00000010)) {
+			p2Halt = true;
+		}
+		if (!(status & 0b00000100)) {
+			triHalt = true;
+		}
+		if (!(status & 0b00001000)) {
+			noiseHalt = true;
+		}
+		break;
 	default: break;
 	}
 

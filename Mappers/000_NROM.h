@@ -2,12 +2,8 @@
 #include "Mapper.h"
 
 class M_000_NROM : public Mapper{
-private:
-	u8* prg;
-	u8** prgBanks;
+protected:
 	u8* chrBank;
-	u8 prgRomSize; // in 16kb units
-	u8 chrRomSize; // in 8kb units
 	u8 ramBank[0x2000];//almost never used, just for very specific non-standard NROM games.
 public:
 	void setPrgRom(u8* prgRom, u8 PRsize);
