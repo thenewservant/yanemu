@@ -24,16 +24,17 @@ int main(int argc, char* argv[]) {
 	}
 #endif
 #ifdef MANUAL
-    const char* gameFile = "blargg\\sprite\\07.screen_bottom.nes";
-	//const char* gameFile = "\\uxrom\\.nes";
+    //const char* gameFile = "blargg\\frame\\7.nmi_timing.nes";
+	const char* gameFile = "\\jts.nes";
 	const char *gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
 	char* gamePath=(char*)malloc(100 *sizeof(char));
 	gamePath = strcpy(gamePath, gameDir);
 	gamePath = strcat(gamePath, gameFile);
 	FILE* droppedFile = fopen(gamePath, "rb");
 	Screen scr(WindowScaleFactor, "Game");
-#endif
+#endif:
 #ifdef DROP
+
 	SetProcessDPIAware();
 	Screen scr(WindowScaleFactor, "Game");
 	while (!scr.listener()) {

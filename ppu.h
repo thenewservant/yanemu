@@ -73,7 +73,10 @@ private:
 	u8 internalPPUreg;// internal 0x2007 read buffer
 	u8 ppuRam[0x4000];
 	Mapper* mapper;
-
+	bool oddFrame = false;
+	bool OverrideFrameOddEven = false;
+	bool suppressVFlagSetting = false;
+private:
 	//renders the next scanline of sprites, in the REVERSE order of how they are stored in OAM2.
 	// @param spritesQty - number of sprites in OAM2
 	// @param sp0present - Is sprite 0 present in OAM2 ?
@@ -99,13 +102,14 @@ public:
 	u8 readPPUSTATUS();
 	//write to 0x2000
 	void writePPUCTRL(u8 what);
+	//write to 0x2001
+	void writePPUMASK(u8 what);
 	//write to 0x2005
 	void writePPUSCROLL(u8 what);
 	//write to 0x2006
 	void writePPUADDR(u8 what);
 	u8 readOAM();
 	u8 rdPPU();
-	bool isInVBlank();
 };
 
 int mainSYS(Screen scr, FILE* testFile);

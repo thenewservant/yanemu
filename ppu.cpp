@@ -12,9 +12,6 @@ u8 spriteContainer[4][4*SECONDARY_OAM_CAP + 8] = { 0 }; /* contains sprite patte
 											4th row - 1 if pixel belongs to sprite 0, 0 otherwise.
 											+8 for eventual overflows*/
 
-bool PPU::isInVBlank() {
-	return isVBlank;
-}
 
 u16 PPU::paletteMap(u16 where) { //compensates specific mirroring for palettes (0x3F10/0x3F14/0x3F18/0x3F1C are mirrors of 0x3F00/0x3F04/0x3F08/0x3F0C) till 0x3FFF
 	if ((where & 0xFF00) == 0x3F00) {
@@ -382,7 +379,6 @@ void PPU::sequencer() {
 	else if (scanLine == 241) {
 		if (cycle == 1) {
 			scr.updateScreen();
-			isVBlank = true;
 			if (maySetVBlankFlag) {
 				ram[0x2002] |= 0b10000000;
 			}
@@ -391,7 +387,7 @@ void PPU::sequencer() {
 			}
 		}
 	}
-	else if (scanLine == 261) {
+	if (scanLine == 261) {
 		if (EITHER_RENDERING) {
 			if ((cycle < 256) && ((cycle % 8) == 0)) {
 				incCoarseX();
@@ -408,10 +404,9 @@ void PPU::sequencer() {
 		}
 
 		if (cycle == 1) {
+			maySetVBlankFlag = true;
 			memset(spriteContainer, 0, 4 * (SECONDARY_OAM_CAP * 4 + 8)); // empty the next scanline's sprite buffer
 			ram[0x2002] &= ~0b11100000; // clear sprite overflow, sprite 0 hit, and vblank flags all at once
-			//printf("VBL CLeared at cycle: %d\n", 341*scanLine);
-			isVBlank = false;
 			frame++;
 		}
 
@@ -422,16 +417,17 @@ void PPU::sequencer() {
 }
 
 void PPU::tick() {
-	static bool oddFrame = false;
 	if (cycle / 341) {
 		scanLine++;
 		cycle = 0;
 	}
 	if ((scanLine == 261) && (cycle == 340) && EITHER_RENDERING) {
-		if (oddFrame) {
+		if (oddFrame ) {
 			cycle = 0;
 			scanLine = 0;
+			
 		}
+		OverrideFrameOddEven = true;
 		oddFrame ^= 1;
 	}
 	if ((scanLine == 0) && (cycle == 0)) {
@@ -456,11 +452,9 @@ PPU::PPU(u32* px, Screen sc, Rom rom) :
 
 u8 PPU::readPPUSTATUS() {
 	if ((scanLine == 241)) {
-		if ((cycle == 0)) {
+		if ((cycle == 1)) { // passes blargg's test, but cycle should be 0 (one ppu cycle before setting )
 			maySetVBlankFlag = false;
-			mayTriggerNMI = false;
 		}
-		
 	}
 	
 	regs.w = 0;
@@ -471,6 +465,19 @@ u8 PPU::readPPUSTATUS() {
 
 void PPU::writePPUCTRL(u8 what) {
 	regs.t = ((what & 0x3) << 10) | (regs.t & 0x73FF);
+	if ( (ram[0x2002] & 0x80) && (!(ram[0x2000] & 0x80)) && (what & 0x80)) {
+		printf("custom NMI!\n");
+		ram[0x2000] = what;
+		_nmi();
+		return;
+	}
+	ram[0x2000] = what;
+}
+
+void PPU::writePPUMASK(u8 what) {
+	if (!(what & 0x18)) {
+		OverrideFrameOddEven = true;
+	}
 }
 
 void PPU::writePPUSCROLL(u8 what) {

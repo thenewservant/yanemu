@@ -86,9 +86,9 @@ float triangle() {
 			triStat %= 32;	
 		}
 		lastVal =  triangleLUT[triStat];
-		return triangleLUT[triStat];
+		return lastVal;
 	}
-	return lastVal;
+	return 0;
 }
 
 float noise() {
@@ -192,7 +192,8 @@ u8 dmc() {
 			}
 		}
 	}
-	return  dmcOutputLevel ;
+
+	return dmcOutputLevel ;
 }
 
 void tickLengthCounters() {
@@ -203,7 +204,7 @@ void tickLengthCounters() {
 		ram[0x4015] &= ~0b00000001;
 	}
 
-	if (lengthCounter[1] && !triHalt) {
+	if (lengthCounter[1] && !p2Halt) {
 		lengthCounter[1] -= 1;
 
 	}
@@ -280,6 +281,13 @@ bool firstAPUCycleHalf() {
 	return (ticks == (int(ticks))); // TODO: check if this is correct
 }
 
+void setFrameIntFlagIfIntInhibitIsClear() {
+	if (0 && !(ram[0x4017] & 0b01000000)) {
+		printf("\nAPU Frame IRQ");
+		ram[0x4015] |= 0b01000000;
+		manualIRQ();
+	}
+}
 
 void apuTick() {
 	
@@ -318,7 +326,9 @@ void apuTick() {
 	if (APU_MODE_4_STEPS) {
 
 		 if (ticks == 14914) {
-			//setFrameIntFlagIfIntInhibitIsClear();
+			
+		
+			setFrameIntFlagIfIntInhibitIsClear();
 		}
 		else if (ticks == 14914.5) {
 			//tickEnvelopes();
@@ -331,8 +341,7 @@ void apuTick() {
 			//setFrameIntFlagIfIntInhibitIsClear();
 		}
 		
-	}else if (APU_MODE_5_STEPS) {
-		
+	}else{
 		 if (ticks == 14914.5) {
 			//setFrameIntFlagIfIntInhibitIsClear();
 		}

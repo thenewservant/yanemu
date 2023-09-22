@@ -24,6 +24,7 @@ void M_001_SxROM::wrCPU(u16 where, u8 what) {
 				switch (where & 0xE000) {
 				case 0x8000: //ctrl
 					mirrorMode = shiftReg & 3;
+					
 					mirror = (mirrorMode &1)?HORIZONTAL: VERTICAL;
 					chrSizeMode = (shiftReg & 0x10) > 0;
 					prgSizeMode = (shiftReg >> 2) & 3;
@@ -50,9 +51,6 @@ void M_001_SxROM::wrCPU(u16 where, u8 what) {
 					case PRG_MODE_SWITCH16_FIXED16:
 						prgBanks[0] = prg + 0x4000 * (shiftReg & (prgRomSize - 1));
 						prgBanks[1] = prg + 0x4000 * (prgRomSize - 1);
-						if (shiftReg & 0b10000) {
-							printf("BIT 4 USED\n");
-						}
 						break;
 					}
 					break;

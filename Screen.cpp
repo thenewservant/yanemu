@@ -94,7 +94,7 @@ void Screen::checkPressKey(SDL_Event event) {
 		specialCom();
 		break;
 	case SDLK_m:
-		_nmi();
+		manualIRQ();
 		break;
 	case SDLK_r:
 		_rst();

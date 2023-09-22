@@ -23,11 +23,10 @@ static u16 pc;
 bool jammed = false; // is the cpu jammed because of certain instructions?
 
 
-u8 ram[0x10000];
+u8 ram[0x10000] = { 0 };
 u8* prog;
 u32 counter = 0;
 u32 cycles = 0;
-u16 bigEndianTmp; // u16 used to process absolute adresses
 
 u8 latchCommandCtrl1 = 0;
 u8 latchCommandCtrl2 = 0;
@@ -45,7 +44,7 @@ PPU* ppu;
 
 u32 comCount[256] = { 0 }; // count how many times each command is executed
 
-bool elemIn(u8 elem, u8* arr, u8 size) {
+inline bool elemIn(u8 elem, u8* arr, u8 size) {
 	for (u8 i = 0; i < size; i++) {
 		if (arr[i] == elem) {
 			return true;
@@ -94,13 +93,15 @@ u8 rdRegisters(u16 where) {
 		return ppu->readOAM();
 	case 0x2007:
 		return ppu->rdPPU();
+	default:
+		return 0;
 	}
-	return 0;
 }
 
 //rd is READ. Used to filter certain accesses (such as PPUADDR latch)
 u8 rd(u16 at) {
 	if (at <= 0x1FFF) {
+		//printf("rd %4X\n", at);
 		return ram[at & 0x7FF];
 	}
 	else if (at >= 0x2000 && at <= 0x3FFF) {
@@ -131,18 +132,11 @@ u8 rd(u16 at) {
 
 inline void writeRegisters(u16 where, u8 what) {
 	switch (where) {
-	//total shit happening at 0x2000.
 	case 0x2000:
 		ppu->writePPUCTRL(what);
-		ram[0x2000] = what; // WHY DOES THAT EVEN WORK ?!!!!!
-		// getting bit 7 to rise should trigger an NMI.
-		// maybe the VBL mechanic is not implemented correctly yet.
-		if (ppu->isInVBlank() && (ram[0x2002] & 0x80) && (!(ram[where] & 0x80)) && (what & 0x80)) {
-			_nmi();
-			return;
-		}
 		break;
 	case 0x2001:
+		ppu->writePPUMASK(what);
 		ram[where] = what;
 	case 0x2003:
 		oamADDR = what;
@@ -168,7 +162,6 @@ inline void wr(u16 where, u8 what) {
 	if (where <= 0x1FFF) {
 		ram[where & 0x07FF] = what;
 	}
-
 	else if (where >= 0x2000 && where <= 0x3FFF) {
 		writeRegisters(where&0x2007,what);
 	}
@@ -237,13 +230,15 @@ inline void check_CV() {
 	sr |= V_FLAG & (((ac ^ aluTmp) & (termB ^ aluTmp)) >> 1);
 }
 
-void _nmi() {
+void _nmi() 
+{
 	wr(STACK_END | sp--, pc >> 8);
 	wr(STACK_END | sp--, (u8)pc);
 	wr(STACK_END | sp--, sr);
 	sr |= I_FLAG;
-	pc = (rd(0xFFFB) << 8) | rd(0xFFFA);
+	pc = ((rd(0xFFFB) << 8) | rd(0xFFFA)) ;
 }
+
 
 void _rst() {
 	sp -= 3;
@@ -316,8 +311,7 @@ void _00brk_() {
 }
 
 void manualIRQ() {
-	if(!(sr & I_FLAG))
-	_00brk_();
+	if((sr & I_FLAG)  == 0) { _00brk_(); }
 }
 
 void _29andI() {
@@ -668,15 +662,14 @@ void _4CjmpA() {
 }
 
 void _6CjmpN() {
-	bigEndianTmp = rd(pc) | (rd(pc + 1) << 8);
-	pc = rd(bigEndianTmp) | (rd((bigEndianTmp & 0xFF00) | (bigEndianTmp + 1) & 0x00FF) << 8); // Here comes the (in)famous Indirect Jump bug implementation...
+	u16 pcTmp = rd(pc) | (rd(pc + 1) << 8);
+	pc = rd(pcTmp) | (rd((pcTmp & 0xFF00) | (pcTmp + 1) & 0x00FF) << 8); // Here comes the (in)famous Indirect Jump bug implementation...
 }
 
 void _20jsrA() {
-	bigEndianTmp = pc + 1;
-	wr(STACK_END | sp, (u8)(bigEndianTmp >> 8));
-	wr(STACK_END | sp - 1, (u8)bigEndianTmp);
-	sp -= 2;
+	u16 pcTmp = pc + 1;
+	wr(STACK_END | sp--, (u8)(pcTmp >> 8));
+	wr(STACK_END | sp--, (u8)pcTmp);
 	pc = rd(pc) | (rd(pc + 1) << 8);
 }
 
@@ -917,7 +910,7 @@ void _0EaslA() {
 }
 
 void _1EaslA() {
-	_asl((((rd(pc + 1) << 8) | rd(pc)) + xr));
+	_asl(((rd(pc + 1) << 8) | rd(pc)) + xr);
 	pc += 2;
 }
 
@@ -1079,18 +1072,22 @@ void _95staZ() {
 }
 
 void _8DstaA() {
-	wr((rd(pc + 1) << 8) | rd(pc), ac);
+	u16 tmpPC =  (rd(pc + 1) << 8) | rd(pc);
 	pc += 2;
+	wr(tmpPC, ac);
+	
 }
 
 void _9DstaA() {
-	wr((((rd(pc + 1) << 8) | rd(pc)) + xr), ac);
+	u16 tmpPC = (((rd(pc + 1) << 8) | rd(pc)) + xr);
 	pc += 2;
+	wr(tmpPC, ac);
 }
 
 void _99staA() {
-	wr((((rd(pc + 1) << 8) | rd(pc)) + yr), ac);
+	u16 tmpPC = (((rd(pc + 1) << 8) | rd(pc)) + yr);
 	pc += 2;
+	wr(tmpPC, ac);
 }
 
 void _81staZ() {
@@ -1115,8 +1112,9 @@ void _96stxZ() {
 }
 
 void _8EstxA() {
-	wr((rd(pc + 1) << 8) | rd(pc), xr);
+	u16 tmpPC = (rd(pc + 1) << 8) | rd(pc);
 	pc += 2;
+	wr(tmpPC, xr);
 }
 
 void _84styZ() {
@@ -1130,8 +1128,9 @@ void _94styZ() {
 }
 
 void _8CstyA() {
-	wr((rd(pc + 1) << 8) | rd(pc), yr);
+	u16 tmpPC = (rd(pc + 1) << 8) | rd(pc);
 	pc += 2;
+	wr(tmpPC, yr);
 }
 
 void _AAtaxM() {
@@ -1215,8 +1214,6 @@ void _B3laxN() {
 	_AAtaxM();
 }
 
-//SBX
-
 void _6BarrM() {
 	pc++;
 }
@@ -1262,7 +1259,6 @@ void _D3dcpN() {
 	_dcp(indY());
 	pc += 1;
 }
-
 
 // ISC
 
@@ -1376,7 +1372,7 @@ void _77rraZ() {
 
 void _6FrraA(){ 
 	_rra((rd(pc + 1) << 8) | rd(pc));
-pc += 2; 
+	pc += 2; 
 }
 
 void _7FrraA() {
@@ -1625,6 +1621,7 @@ int mainSYS(Screen scr, FILE* testFile) {
 					if (masterClockCycles == 3) {
 
 						if (cycles==0) {
+							
 							u8 op = rd(pc++);
 							cycles += _6502InstBaseCycles[op];
 							comCount[op]++;

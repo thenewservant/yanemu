@@ -4,8 +4,8 @@
 #include <SDL.h>
 #include <stdio.h>
 
-#define APU_MODE_4_STEPS ((ram[0x4017] & 0x80) == 0x80)
-#define APU_MODE_5_STEPS ((ram[0x4017] & 0x80) == 0x00)
+#define APU_MODE_5_STEPS ((ram[0x4017] & 0x80) == 0x80)
+#define APU_MODE_4_STEPS ((ram[0x4017] & 0x80) == 0x00)
 
 #define REF 4000
 #define DUTY_CYCLE 0b11000000
