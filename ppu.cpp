@@ -4,7 +4,6 @@
 
 u8 oamADDR = 0;
 u8** ppuMemSpace = (u8**)calloc(1 + 4, sizeof(u8*)); // for now, 1 slot for PT, 4 for NT.
-
 u8 spriteContainer[4][4*SECONDARY_OAM_CAP + 8] = { 0 }; /* contains sprite pattern data for a single scanline.
 											1st row - raw sprite priority (for this pixel),
 											2nd row - calculated pixel output according to secondary OAM index,
@@ -14,14 +13,15 @@ u8 spriteContainer[4][4*SECONDARY_OAM_CAP + 8] = { 0 }; /* contains sprite patte
 
 
 u16 PPU::paletteMap(u16 where) { //compensates specific mirroring for palettes (0x3F10/0x3F14/0x3F18/0x3F1C are mirrors of 0x3F00/0x3F04/0x3F08/0x3F0C) till 0x3FFF
-	if ((where & 0xFF00) == 0x3F00) {
-		u16 tmp = where & 0x3F1F;
-		if (!(tmp & 0x0003)) {
-			return tmp & ~0x0010;
-		}
+	u16 tmp = where & 0x3F1F;
+	if (tmp & 0x0003) {
+		return tmp;
+	} else if (tmp & 0x0010) {
+		return tmp & ~0x0010;
+	}
+	else {
 		return tmp;
 	}
-	return where;
 }
 
 void PPU::wrNT(u16 where, u8 what) {
@@ -86,7 +86,9 @@ u8 PPU::rdVRAM(u16 where) {
 		if (where >= 0x3F00) {// 0x3000 - 0x3FFF are mirrors of 0x2000 - 0X2FFF
 			return ppuRam[paletteMap(where)];
 		}
-		return rdNT(where);
+		else {
+			return rdNT(where);
+		}
 	default:
 		break;
 	}
@@ -348,7 +350,7 @@ void PPU::BGRenderer() {
 }
 
 void PPU::sequencer() {
-	
+	static bool canFinallyNMI = false;
 	if (scanLine < 240) {
 		if (EITHER_RENDERING) {
 				spriteEvaluator();
@@ -382,11 +384,22 @@ void PPU::sequencer() {
 			if (maySetVBlankFlag) {
 				ram[0x2002] |= 0b10000000;
 			}
-			if ((ram[0x2000] & 0x80) && mayTriggerNMI) {
-				_nmi();
+			if ((ram[0x2000] & 0x80)) {
+				nmiPending = true;
 			}
 		}
 	}
+	if ((scanLine >= 241) && (scanLine <= 261)) {
+		if (nmiPending && !getCycles()) {
+			canFinallyNMI = true;
+		}
+		if (canFinallyNMI && getCycles()) {
+			_nmi();
+			canFinallyNMI = false;
+			nmiPending = false;
+		}
+	}
+
 	if (scanLine == 261) {
 		if (EITHER_RENDERING) {
 			if ((cycle < 256) && ((cycle % 8) == 0)) {
@@ -441,9 +454,9 @@ void PPU::tick() {
 }
 
 PPU::PPU(u32* px, Screen sc, Rom rom) :
-	OAM{}, internalPPUreg(0), frame(0), cycle(0), scanLine(261),
-	isVBlank(false), scr(sc), pixels(px), secondaryOAM{}, regs{},
-	ppuRam{}, mayTriggerNMI{ true }, maySetVBlankFlag{ true }
+	OAM{0}, internalPPUreg(0), frame(0), cycle(0), scanLine(261),
+	isVBlank(false), scr(sc), pixels(px), secondaryOAM{0}, regs{0},
+	ppuRam{0}, mayTriggerNMI{ true }, maySetVBlankFlag{ true }
 {
 	ram[0x2002] = 0b10000000;
 	this->mapper = rom.getMapper();
@@ -454,6 +467,7 @@ u8 PPU::readPPUSTATUS() {
 	if ((scanLine == 241)) {
 		if ((cycle == 1)) { // passes blargg's test, but cycle should be 0 (one ppu cycle before setting )
 			maySetVBlankFlag = false;
+			mayTriggerNMI = false;
 		}
 	}
 	
@@ -465,11 +479,8 @@ u8 PPU::readPPUSTATUS() {
 
 void PPU::writePPUCTRL(u8 what) {
 	regs.t = ((what & 0x3) << 10) | (regs.t & 0x73FF);
-	if ( (ram[0x2002] & 0x80) && (!(ram[0x2000] & 0x80)) && (what & 0x80)) {
-		printf("custom NMI!\n");
-		ram[0x2000] = what;
-		_nmi();
-		return;
+	if ((ram[0x2002] & 0x80) && (!(ram[0x2000] & 0x80)) && (what & 0x80)) {
+		nmiPending=true;
 	}
 	ram[0x2000] = what;
 }

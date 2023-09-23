@@ -3,7 +3,6 @@
 void M_001_SxROM::wrCPU(u16 where, u8 what) {
 	static u8 shiftReg = 0;
 	static u8 shiftedBits = 0; // how many times we have written to shift register
-
 	static u8 mirrorMode;
 
 	if (where < 0x8000) {
@@ -24,17 +23,16 @@ void M_001_SxROM::wrCPU(u16 where, u8 what) {
 				switch (where & 0xE000) {
 				case 0x8000: //ctrl
 					mirrorMode = shiftReg & 3;
-					
 					mirror = (mirrorMode &1)?HORIZONTAL: VERTICAL;
 					chrSizeMode = (shiftReg & 0x10) > 0;
 					prgSizeMode = (shiftReg >> 2) & 3;
 					break;
 				case 0xA000: //chr0
-					chr0 = shiftReg;
+					chr0 = shiftReg & (2 * chrRomSize - 1);
 					chrUpdate();
 					break;
 				case 0xC000: //chr1
-					chr1 = shiftReg;
+					chr1 = shiftReg & (2 * chrRomSize - 1);
 					chrUpdate();
 					break;
 				case 0xE000: //prg
@@ -66,10 +64,9 @@ void M_001_SxROM::wrCPU(u16 where, u8 what) {
 void M_001_SxROM::chrUpdate() {
 	switch (chrSizeMode) {
 	case CHR_MODE_4KB:
-		//printf("4KB mode!\n");
 		if (chrRomSize) {
-			chrBanks[0] = chr + 0x1000 * (chr0 & (2*chrRomSize - 1));
-			chrBanks[1] = chr + 0x1000 * (chr1 & (2*chrRomSize - 1));
+			chrBanks[0] = chr + 0x1000 * (chr0);
+			chrBanks[1] = chr + 0x1000 * (chr1);
 		}
 		else {
 			chrBanks[0] = chrRamBanks[chr0 & 1];
@@ -77,10 +74,9 @@ void M_001_SxROM::chrUpdate() {
 		}
 		break;
 	case CHR_MODE_8KB:
-		//printf("8KB mode!\n");
 		if (chrRomSize) {
-			chrBanks[0] = chr + 0x1000 * (chr0 & (chrRomSize - 1) & 0xE);
-			chrBanks[1] = chrBanks[0] + 0x1000;
+			chrBanks[0] = chr + 0x1000 * (chr0);
+			chrBanks[1] = chr + 0x1000 * (chr0+1);
 		}
 		else {
 			chrBanks[0] = chrRamBanks[chr0 & 1];

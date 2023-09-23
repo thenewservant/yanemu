@@ -89,4 +89,7 @@ void specialCom();
 void addCycle();
 void manualIRQ();
 void _rst();
+void changeMirror();
+u32 getCycles();
+void rstCtrl();
 #endif

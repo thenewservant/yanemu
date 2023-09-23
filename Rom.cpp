@@ -34,6 +34,7 @@ Rom::Rom(FILE* romFile, u8* ram) {
 	chrRomSize = header[5];
 	
 	printf("Mapper type: %d\n", mapperType);
+	printf("Mirroring type: %s\n", mirroringType ? "Vertical" : "Horizontal");
 	printf("CHR ROM size: %d (%d KB)\n", chrRomSize, chrRomSize * 8);
 	printf("PRG ROM size: %d (%d KB)\n", prgRomSize, prgRomSize * 16);
 	printf("Cartdrige %s battery-backed PRG RAM\n", header[6] & 2 ? "has" : "does not have");

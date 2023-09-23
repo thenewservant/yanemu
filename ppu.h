@@ -76,6 +76,7 @@ private:
 	bool oddFrame = false;
 	bool OverrideFrameOddEven = false;
 	bool suppressVFlagSetting = false;
+	bool nmiPending = false;
 private:
 	//renders the next scanline of sprites, in the REVERSE order of how they are stored in OAM2.
 	// @param spritesQty - number of sprites in OAM2

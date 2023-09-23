@@ -44,6 +44,10 @@ PPU* ppu;
 
 u32 comCount[256] = { 0 }; // count how many times each command is executed
 
+u32 getCycles() {
+	return cycles;
+}
+
 inline bool elemIn(u8 elem, u8* arr, u8 size) {
 	for (u8 i = 0; i < size; i++) {
 		if (arr[i] == elem) {
@@ -83,6 +87,25 @@ void pressKey(u16 pressed) {
 //mainly for OAMDMA alignment.
 void addCycle() {
 	cycles++;
+}
+
+void rstCtrl() {
+	//reset controller latches
+	latchCommandCtrl1 = 0;
+	latchCommandCtrl2 = 0;
+	keyLatchCtrl1 = 0;
+	keyLatchCtrl2 = 0;
+	keys1 = 0;
+	keys2 = 0;
+}
+
+void changeMirror() {
+	if (mirror == VERTICAL) {
+		mirror = HORIZONTAL;
+	}
+	else {
+		mirror = VERTICAL;
+	}
 }
 
 u8 rdRegisters(u16 where) {
@@ -165,11 +188,9 @@ inline void wr(u16 where, u8 what) {
 	else if (where >= 0x2000 && where <= 0x3FFF) {
 		writeRegisters(where&0x2007,what);
 	}
-
 	else if ((where >= 0x6000) && (where <= 0xFFFF)) {
 		mapper->wrCPU(where, what);
 	}
-
 	else {
 		switch (where) {
 		case 0x4014:
@@ -661,10 +682,17 @@ void _4CjmpA() {
 	pc = rd(pc) | (rd(pc + 1) << 8);
 }
 
+/*
+void _6CjmpN() {
+	u16 pcTmp = rd(pc) | (rd(pc + 1) << 8);
+	pc = rd(pcTmp) | (rd((pcTmp & 0xFF00) | (pcTmp + 1) & 0x00FF) << 8); // Here comes the (in)famous Indirect Jump bug implementation...
+}*/
+
 void _6CjmpN() {
 	u16 pcTmp = rd(pc) | (rd(pc + 1) << 8);
 	pc = rd(pcTmp) | (rd((pcTmp & 0xFF00) | (pcTmp + 1) & 0x00FF) << 8); // Here comes the (in)famous Indirect Jump bug implementation...
 }
+
 
 void _20jsrA() {
 	u16 pcTmp = pc + 1;
