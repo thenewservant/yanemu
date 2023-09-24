@@ -1,22 +1,19 @@
 #include "ScreenTools.h"
 
-#define IDM_FILE_OPEN 2
-
 u32 *pixels = (u32*)calloc(SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(u32));
 
 void Screen::initSDLScreen() {
 	char tt[100];
 	strcpy(tt, "Yanemu: ");
 	strcat(tt, title);
-
-	window = SDL_CreateWindow(tt, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, SCREEN_WIDTH * ScreenScaleFactor, SCREEN_HEIGHT * ScreenScaleFactor, SDL_WINDOW_SHOWN);
+	screenW = SCREEN_WIDTH * ScreenScaleFactor;
+	screenH = SCREEN_HEIGHT * ScreenScaleFactor;
+	window = SDL_CreateWindow(tt, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, screenW, screenH, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
 	
-	SDL_SetWindowShape(window, NULL, NULL);
-
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	
 	// Create SDL texture
-	surface = SDL_CreateRGBSurfaceWithFormat(0, SCREEN_WIDTH, SCREEN_HEIGHT, 32, SDL_PIXELFORMAT_RGBX8888);
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
 	
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
@@ -55,6 +52,19 @@ u32* Screen::getPixels() {
 }
 
 void Screen::updateScreen() {
+	static bool fullScreenState = false;
+	if (needFullScreenToggle) {
+		printf("Toggle fullscreen\n");
+		needFullScreenToggle = false;
+		SDL_DestroyRenderer(renderer);
+		SDL_DestroyTexture(texture);
+		fullScreenState = !fullScreenState;
+		SDL_SetWindowFullscreen(window, fullScreenState && SDL_WINDOW_FULLSCREEN_DESKTOP);
+
+		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+		texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+	}
 	SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
@@ -101,6 +111,9 @@ void Screen::checkPressKey(SDL_Event event) {
 		break;
 	case SDLK_h:
 		rstCtrl();
+		break;
+	case SDLK_q:
+		needFullScreenToggle = true;
 		break;
 	case SDLK_r:
 		_rst();
@@ -167,6 +180,10 @@ u8 Screen::listener() {
 			case SDL_WINDOWEVENT_CLOSE:
 				printf("Window closed\n");
 				exit(0);
+			case SDL_WINDOWEVENT_RESIZED:
+				printf("Window resized\n");
+				//resizeWindow();
+				break;
 			default:
 				break;
 			}
@@ -196,3 +213,6 @@ char* Screen::getFilePath() {
 }
 
 
+void Screen::resizeWindow() {
+
+}

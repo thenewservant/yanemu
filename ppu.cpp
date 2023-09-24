@@ -1,6 +1,6 @@
 #include "ppu.h"
 #include "firstAPU.h"
-#define HOW_MANY_PT_SLOTS 1
+
 
 u8 oamADDR = 0;
 u8** ppuMemSpace = (u8**)calloc(1 + 4, sizeof(u8*)); // for now, 1 slot for PT, 4 for NT.
@@ -10,7 +10,6 @@ u8 spriteContainer[4][4*SECONDARY_OAM_CAP + 8] = { 0 }; /* contains sprite patte
 											3rd row - palette index for the current pixel.
 											4th row - 1 if pixel belongs to sprite 0, 0 otherwise.
 											+8 for eventual overflows*/
-
 
 u16 PPU::paletteMap(u16 where) { //compensates specific mirroring for palettes (0x3F10/0x3F14/0x3F18/0x3F1C are mirrors of 0x3F00/0x3F04/0x3F08/0x3F0C) till 0x3FFF
 	u16 tmp = where & 0x3F1F;
@@ -24,18 +23,6 @@ u16 PPU::paletteMap(u16 where) { //compensates specific mirroring for palettes (
 	}
 }
 
-void PPU::wrNT(u16 where, u8 what) {
-	u8 ntID = (where >> 10) & 3;
-	switch (mirror) {
-	case HORIZONTAL:
-		ppuMemSpace[HOW_MANY_PT_SLOTS +(ntID >> 1)][where & 0x03FF] = what;
-		break;
-	case VERTICAL:
-		ppuMemSpace[HOW_MANY_PT_SLOTS +(ntID & 1)][where & 0x03FF] = what;
-		break;
-	}
-}
-
 void PPU::wrVRAM(u8 what) {
 	switch (V & 0x7000) {
 	case 0x0000:
@@ -43,33 +30,18 @@ void PPU::wrVRAM(u8 what) {
 		 mapper->wrPPU(V, what);
 		 break;
 	case 0x2000:
-		 wrNT(V, what);
+		 mapper->wrNT(V, what);
 		 break;
 	case 0x3000:
 		if (V >= 0x3F00) {
 			ppuRam[paletteMap(V)] = what;
 		} else {
-			wrNT(V, what);
+			mapper->wrNT(V, what);
 		}
 		break;
 	default:
 		break;
 	}
-}
-
-u8 PPU::rdNT(u16 where) {
-	u8 ntID = (where >> 10)&3;
-	switch (mirror) {
-	case HORIZONTAL:
-		return ppuMemSpace[HOW_MANY_PT_SLOTS +(ntID >> 1)][where & 0x03FF];
-		break;
-	case VERTICAL:
-		return ppuMemSpace[HOW_MANY_PT_SLOTS +(ntID&1)][where & 0x03FF];
-		break;
-	default:
-		break;
-	}
-	return 0;
 }
 
 // direct VRAM access, no increment of v
@@ -81,39 +53,18 @@ u8 PPU::rdVRAM(u16 where) {
 	case 0x1000:
 		return mapper->rdPPU(where);
 	case 0x2000:
-		return rdNT(where);
+		return mapper->rdNT(where);
 	case 0x3000:
 		if (where >= 0x3F00) {// 0x3000 - 0x3FFF are mirrors of 0x2000 - 0X2FFF
 			return ppuRam[paletteMap(where)];
 		}
 		else {
-			return rdNT(where);
+			return mapper->rdNT(where);
 		}
 	default:
 		break;
 	}
 	return 0;
-}
-
-void PPU::updateOam() { // OAMDMA (0x4014) processing routine
-	for (u16 i = 0; i <= 0xFF; i++) {
-		OAM[oamADDR] = rd((ram[0x4014] << 8) | i);
-		oamADDR++;
-	}
-	if (firstAPUCycleHalf()) {
-		addCycle();
-	}
-}
-
-void PPU::writeOAM(u8 what) {
-	if (!EITHER_RENDERING) {
-		OAM[oamADDR] = what;
-		oamADDR++;
-	}
-}
-
-u8 PPU::readOAM() {
-	return OAM[oamADDR];
 }
 
 void PPU::incCoarseX() {
@@ -283,14 +234,14 @@ void PPU::BGRenderer() {
 			bgTmp = (bgVramColor & 3) ? bgVramColor : 0x3F00; //default background color
 		}
 		
-		bgPIX = colors[palette][rdVRAM(bgTmp)];// even if LEFTMOST_BG_SHOWN or BG_RENDERING is false, bgPIX will be at least color at 0x3F00 (default background color)
+		bgPIX = colors[palette][rdVRAM(bgTmp)&0x3F];// even if LEFTMOST_BG_SHOWN or BG_RENDERING is false, bgPIX will be at least color at 0x3F00 (default background color)
 
 		if (SPRITE_RENDERING && (LEFTMOST_SPRITES_SHOWN || ((cycle) > 8))) {
 			spriteOpaque = spriteContainer[1][cycle - 1];
 			priority = spriteContainer[0][cycle - 1];
 			spVramColor = 0x3F10 + 4 * (spriteContainer[2][cycle - 1]) + spriteOpaque;
 			spTmp = (spVramColor & 3) ? spVramColor : 0x3F10;
-			spritePIX = colors[palette][rdVRAM(spTmp)];
+			spritePIX = colors[palette][rdVRAM(spTmp) & 0x3F];
 		}
 
 		if (spriteContainer[3][cycle - 1] && ((spriteOpaque > 0) && (bgOpaque > 0)) && BOTH_RENDERING) { //sprite 0 hit detection
@@ -369,7 +320,7 @@ void PPU::sequencer() {
 		}
 		else {
 			if ((V >= 0x3F00) && (cycle > 0) && (cycle < 257) && (scanLine>7) && (scanLine <232)) {
-			pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] = colors[1][rdVRAM(V)];
+			pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] = colors[1][rdVRAM(V) & 0x3F];
 			}
 		}
 
@@ -532,6 +483,31 @@ u8 PPU::rdPPU() {
 		 incPPUADDR();
 		 return tmp; 
 	 }
+}
+
+void PPU::updateOam() { // OAMDMA (0x4014) processing routine
+	for (u16 i = 0; i <= 0xFF; i++) {
+		OAM[oamADDR] = rd((ram[0x4014] << 8) | i);
+		oamADDR++;
+	}
+	if (firstAPUCycleHalf()) {
+		addCycle();
+	}
+}
+
+void PPU::writeOAM(u8 what) {
+	if (!EITHER_RENDERING) {
+		OAM[oamADDR] = what;
+		oamADDR++;
+	}
+}
+
+void PPU::setOAMADDR(u8 what) {
+	oamADDR = what;
+}
+
+u8 PPU::readOAM() {
+	return OAM[oamADDR];
 }
 
 inline void PPU::incPPUADDR() {

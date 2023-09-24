@@ -22,21 +22,15 @@ static u8 ac, xr, yr, sr = SR_RST, sp = 0xFD;
 static u16 pc;
 bool jammed = false; // is the cpu jammed because of certain instructions?
 
-
 u8 ram[0x10000] = { 0 };
-u8* prog;
-u32 counter = 0;
 u32 cycles = 0;
 
 u8 latchCommandCtrl1 = 0;
 u8 latchCommandCtrl2 = 0;
-
 u8 keys1 = 0;
 u8 keys2 = 0;
-
 u8 keyLatchCtrl1 = 0; // controller 1 buttons
 u8 keyLatchCtrl2 = 0; // controller 2 buttons
-
 
 Rom MainRom;
 Mapper* mapper;
@@ -117,7 +111,7 @@ u8 rdRegisters(u16 where) {
 	case 0x2007:
 		return ppu->rdPPU();
 	default:
-		return 0;
+		return ram[where];
 	}
 }
 
@@ -139,15 +133,23 @@ u8 rd(u16 at) {
 			ram[0x4016] = ram[0x4016] & 0xFE | (keyLatchCtrl1) & 1;
 			keyLatchCtrl1 >>= 1;
 			keyLatchCtrl1 |= 0x80;
+			return 0x40 | ram[0x4016];
 		}
-		return 0x40 | ram[0x4016];
+		else {
+			return keys1 & 1;
+		}
+		
 	case 0x4017: 
 		if (latchCommandCtrl2) {
 			ram[0x4017] = ram[0x4017] & 0xFE | (keyLatchCtrl2) & 1;
 			keyLatchCtrl2 >>= 1;
 			keyLatchCtrl2 |= 0x80;
+			return 0x40 | ram[0x4017];
 		}
-		return 0x40 | ram[0x4017];
+		else {
+			return keys2 & 1;
+		}
+		
 	default:
 		return ram[at];
 	}	
@@ -162,7 +164,7 @@ inline void writeRegisters(u16 where, u8 what) {
 		ppu->writePPUMASK(what);
 		ram[where] = what;
 	case 0x2003:
-		oamADDR = what;
+		ppu->setOAMADDR(what);
 		break;
 	case 0x2004:
 		ppu->writeOAM(what);
@@ -199,6 +201,7 @@ inline void wr(u16 where, u8 what) {
 			cycles += 513;
 			return;
 		case 0x4016:
+
 			latchCommandCtrl1 = !(what & 1);
 			latchCommandCtrl2 = !(what & 1);
 			if (latchCommandCtrl1) {
@@ -260,13 +263,13 @@ void _nmi()
 	pc = ((rd(0xFFFB) << 8) | rd(0xFFFA)) ;
 }
 
-
 void _rst() {
 	sp -= 3;
 	sr |= I_FLAG;
 	pc = (rd(0xFFFD) << 8) | rd(0xFFFC);
 	ram[0x4015] = 0;
 }
+
 //adc core procedure -- termB is the operand as termA is always ACCUMULATOR
 inline void _adc() {
 	aluTmp = ac + termB + (sr & C_FLAG);
@@ -681,12 +684,6 @@ void _C8inyM() {
 void _4CjmpA() {
 	pc = rd(pc) | (rd(pc + 1) << 8);
 }
-
-/*
-void _6CjmpN() {
-	u16 pcTmp = rd(pc) | (rd(pc + 1) << 8);
-	pc = rd(pcTmp) | (rd((pcTmp & 0xFF00) | (pcTmp + 1) & 0x00FF) << 8); // Here comes the (in)famous Indirect Jump bug implementation...
-}*/
 
 void _6CjmpN() {
 	u16 pcTmp = rd(pc) | (rd(pc + 1) << 8);
@@ -1562,7 +1559,7 @@ void _1CnopA() { NOP; absArg(xr); pc += 2; }
 
 
 void _illegal() {
-	printf("\nThis ILLEGAL OPCODE is not implemented YET! :%X, %X, %X - pc:%4X\n", prog[pc - 1], rd(pc), rd(pc + 1), pc-1);
+	printf("\nThis ILLEGAL OPCODE is not implemented YET! :%X, %X, %X - pc:%4X\n", rd(pc - 1), rd(pc), rd(pc + 1), pc-1);
 	exit(0x1);
 }
 
@@ -1620,8 +1617,6 @@ u8 masterClockCycles = 0;
 
 int mainSYS(Screen scr, FILE* testFile) {
 
-	
-	prog = ram;
 
 	Rom rom(testFile, ram);
 	MainRom = rom;
@@ -1640,16 +1635,16 @@ int mainSYS(Screen scr, FILE* testFile) {
 	case NTSC:
 		printf("\nVideo: NTSC");
 		while (1) {
-			
-			while ((SDL_GetQueuedAudioSize(dev) / sizeof(float)) < 1*4470) {
+
+			while ((SDL_GetQueuedAudioSize(dev) / sizeof(float)) < 1 * 4470) {
 				for (int i = 0; i < 59561 * 1; i++) {
 					nbcyc++;
 					ppu->tick();
-					
+
 					if (masterClockCycles == 3) {
 
-						if (cycles==0) {
-							
+						if (cycles == 0) {
+
 							u8 op = rd(pc++);
 							cycles += _6502InstBaseCycles[op];
 							comCount[op]++;
@@ -1668,7 +1663,7 @@ int mainSYS(Screen scr, FILE* testFile) {
 					auto t1 = Time::now();
 					fsec fs = t1 - t0;
 					long long millis = std::chrono::duration_cast<std::chrono::milliseconds>(fs).count();
-					printf("\n1s elapsed in: %.3fs -- %.2f fps", millis / 1000.0, 60*1000.0/millis );
+					printf("\n1s elapsed in: %.3fs -- %.2f fps", millis / 1000.0, 60 * 1000.0 / millis);
 					t0 = Time::now();
 				}
 			}
@@ -1685,6 +1680,5 @@ int mainSYS(Screen scr, FILE* testFile) {
 	default:
 		printf("rom ERROR!");
 		exit(1);
-		}
-	free(ppu);
+	}
 	}

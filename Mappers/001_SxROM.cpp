@@ -5,7 +5,7 @@ void M_001_SxROM::wrCPU(u16 where, u8 what) {
 	static u8 shiftedBits = 0; // how many times we have written to shift register
 	static u8 mirrorMode;
 
-	if (where < 0x8000) {
+	if ((where < 0x8000) && wRamEnable){
 		prgRamBanks[0][where-0x6000] = what;	
 	}
 	else {
@@ -19,13 +19,13 @@ void M_001_SxROM::wrCPU(u16 where, u8 what) {
 			shiftedBits++;
 			if (shiftedBits == 5) {
 				shiftedBits = 0;
-
+				
 				switch (where & 0xE000) {
 				case 0x8000: //ctrl
-					mirrorMode = shiftReg & 3;
-					mirror = (mirrorMode &1)?HORIZONTAL: VERTICAL;
+					mirror = mmc1MappingEqu[shiftReg & 3];
 					chrSizeMode = (shiftReg & 0x10) > 0;
 					prgSizeMode = (shiftReg >> 2) & 3;
+					
 					break;
 				case 0xA000: //chr0
 					chr0 = shiftReg & (2 * chrRomSize - 1);
@@ -36,6 +36,7 @@ void M_001_SxROM::wrCPU(u16 where, u8 what) {
 					chrUpdate();
 					break;
 				case 0xE000: //prg
+					wRamEnable = !(shiftReg & 0x10);
 					switch (prgSizeMode) {
 					case PRG_MODE_FIXED32_0:
 					case PRG_MODE_FIXED32_1:
@@ -106,8 +107,14 @@ void M_001_SxROM::wrPPU(u16 where, u8 what) {
 
 u8 M_001_SxROM::rdCPU(u16 where) {
 	
-	if (where < 0x8000) {
-		return prgRamBanks[0][where - 0x6000];
+	if ((where < 0x8000)) {
+		if (wRamEnable) {
+			return prgRamBanks[0][where - 0x6000];
+		}
+		else {
+			return 0;
+		}
+		
 	}
 	else if (where < 0xC000) {
 		
@@ -141,5 +148,49 @@ void M_001_SxROM::setChrRom(u8* chrRom, u8 CHRsize){
 		chrUpdate();
 		break;
 	}
+}
 
+void M_001_SxROM::wrNT(u16 where, u8 what) {
+	u8 ntID = (where >> 10) & 3;
+	switch (mirror) {
+	case HORIZONTAL:
+		nameTables[(ntID >> 1)][where & 0x03FF] = what;
+		break;
+	case VERTICAL:
+		nameTables[(ntID & 1)][where & 0x03FF] = what;
+		break;
+	case SINGLE_SCREEN_0:
+		nameTables[0][where & 0x03FF] = what;
+		break;
+	case SINGLE_SCREEN_1:
+		nameTables[1][where & 0x03FF] = what;
+		break;
+	default:
+		break;
+	}
+}
+
+u8 M_001_SxROM::rdNT(u16 where) {
+	u8 ntID = (where >> 10) & 3;
+	switch (mirror) {
+	case HORIZONTAL:
+		return nameTables[(ntID >> 1)][where & 0x03FF];
+		break;
+	case VERTICAL:
+		return nameTables[(ntID & 1)][where & 0x03FF];
+		break;
+	case SINGLE_SCREEN_0:
+		return nameTables[0][where & 0x03FF];
+		break;
+	case SINGLE_SCREEN_1:
+		return nameTables[1][where & 0x03FF];
+		break;
+	default:
+		break;
+	}
+	return 0;
+}
+
+void M_001_SxROM::setMirroring(u8 mir) {
+	mirror = SINGLE_SCREEN_1;
 }

@@ -20,15 +20,18 @@ private:
 	SDL_Window* window;
 	SDL_Renderer* renderer;
 	SDL_Texture* texture;
-	SDL_Surface* surface;
 	u8 ScreenScaleFactor;
 	u16 status;
+	bool needFullScreenToggle=false;
 	const char* title = "Yanemu";
 	SDL_Event keyEvent;
+	u16 screenW, screenH;
+private:
 	void initSDLScreen();
 	char* newFilePath;
 
 public:
+	void resizeWindow();
 	Screen();
 	Screen(u8 scaleFact);
 	Screen(u8 scaleFact, const char* title);

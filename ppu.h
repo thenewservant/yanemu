@@ -87,9 +87,7 @@ private:
 	void sequencer();
 	void incPPUADDR();
 	u16 paletteMap(u16 where);
-	void wrNT(u16 where, u8 what);
 	void wrVRAM(u8 what);
-	u8 rdNT(u16 where);
 	u8 rdVRAM(u16 where);
 	void incFineY();
 	void incCoarseX();
@@ -98,6 +96,7 @@ public:
 	void tick();
 	void updateOam();
 	void writeOAM(u8 what);
+	void setOAMADDR(u8 what);
 	void writePPU(u8 what);
 	//read 0x2002
 	u8 readPPUSTATUS();
@@ -110,6 +109,7 @@ public:
 	//write to 0x2006
 	void writePPUADDR(u8 what);
 	u8 readOAM();
+	//read VRam WITH ppu address increment AND internal buffer fill.
 	u8 rdPPU();
 };
 

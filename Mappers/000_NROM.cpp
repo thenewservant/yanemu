@@ -50,5 +50,7 @@ u8 M_000_NROM::rdPPU(u16 where) {
 
 
 void M_000_NROM::wrPPU(u16 where, u8 what) {
-	chrBank[where] = what;
+	if (!chrRomSize) {
+		chrBank[where] = what;
+	}
 }
