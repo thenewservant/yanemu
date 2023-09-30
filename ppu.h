@@ -1,7 +1,7 @@
 #pragma once
 #ifndef PPU_H
 #define PPU_H
-#include "simpleCPU.h"
+#include "types.h"
 #include "ScreenTools.h"
 #include "Rom.h"
 
@@ -15,7 +15,7 @@
 #define LEFTMOST_SPRITES_SHOWN (ram[0x2001] & 0b00000100)
 #define LEFTMOST_BOTH_SHOWN ((ram[0x2001] & 0b00000110) == 0b00000110)
 
-#define V (regs.v&0x3FFF) //since PPU address is only 15 bits wide
+#define V (scrollRegs.v&0x3FFF) //since PPU address is only 15 bits wide
 
 #define NT_CYCLE 1
 #define AT_CYCLE 3 
@@ -32,13 +32,9 @@
 #define SPRITE_PT ((ram[0x2000] & 0x08) ? 0x1000 : 0x0000) //sprite pattern table address
 #define SP_MODE ((ram[0x2000] & 0x20) ? 16 : 8) //sprite size in pixels
 
-#define COARSE_V (regs.v & 0x0FFF)
-#define FINE_Y (regs.v >> 12)
+#define COARSE_V (scrollRegs.v & 0x0FFF)
+#define FINE_Y (scrollRegs.v >> 12)
 
-extern u8 oamADDR;
-extern u8** ppuMemSpace;
-
-//Second palette looks slightly better.
 static const uint32_t colors[][64] = { { 0x54545400, 0x001e7400, 0x08109000, 0x30008800, 0x44006400, 0x5c003000, 0x54040000, 0x3c180000, 0x202a0000, 0x083a0000, 0x00400000, 0x003c0000, 0x00323c00, 0x00000000, 0x00000000, 0x00000000,
 								 0x98969800, 0x084cc400, 0x3032ec00, 0x5c1ee400, 0x8814b000, 0xa0146400, 0x98222000, 0x783c0000, 0x545a0000, 0x28720000, 0x087c0000, 0x00762800, 0x00667800, 0x00000000, 0x00000000, 0x00000000,
 								 0xeceeec00, 0x4c9aec00, 0x787cec00, 0xb062ec00, 0xe454ec00, 0xec58b400, 0xec6a6400, 0xd4882000, 0xa0aa0000, 0x74c40000, 0x4cd02000, 0x38cc6c00, 0x38b4cc00, 0x3c3c3c00, 0x00000000, 0x00000000,
@@ -49,17 +45,45 @@ static const uint32_t colors[][64] = { { 0x54545400, 0x001e7400, 0x08109000, 0x3
 								 0xeaeaea00, 0x5797ff00, 0x8778ff00, 0xb961ff00, 0xe257ff00, 0xf65dab00, 0xef725000, 0xd0900800, 0xa1af0000, 0x6ec60000, 0x45d02800, 0x32ca7d00, 0x38b5d700, 0x3d3d3d00, 0x00000000, 0x00000000,
 								 0xeaeaea00, 0xaec8ff00, 0xc1bbff00, 0xd6b2ff00, 0xe7aef300, 0xefb0d000, 0xecb9ab00, 0xdfc58d00, 0xccd27f00, 0xb7dc8400, 0xa6e09a00, 0x9eddbd00, 0xa1d4e200, 0xa3a3a300, 0x00000000, 0x00000000} };
 
-constexpr  bool palette = 1;
+constexpr bool palette = 1;
 
-typedef struct ppu_regs_t {
+struct PpuScrollRegs_t {
 	u16 v, t;
 	u8 x; //fine X scroll
 	bool w; //common latch for 0x2005 and 0x2006
-} ppuRegs_t;
+};
+
+struct PpuControlRegs_t {
+	bool nmiEnable;
+	bool masterSlave;
+	u8 spHeight = 8;
+	u16 bgPatternTable, spPatternTable;
+
+	void setPPUCtrl(u8 what) {
+		nmiEnable = what & 0b10000000;
+		masterSlave = what & 0b01000000;
+	}
+
+	bool blueEmph, greenEmph, redEmph, greyScale;
+	bool spEnable, bgEnable;
+	bool spLeftShown, bgLeftShown;
+
+	void setPPUMask(u8 what) {
+		blueEmph = what & 0b10000000;
+		greenEmph = what & 0b01000000;
+		redEmph = what & 0b00100000;
+		spEnable = what & 0b00010000;
+		bgEnable = what & 0b00001000;
+		spLeftShown = what & 0b00000100;
+		bgLeftShown = what & 0b00000010;
+		greyScale = what & 0b00000001;
+	}
+};
 
 class PPU {
 private:
-	ppuRegs_t regs;
+	struct PpuScrollRegs_t scrollRegs;
+	struct PpuControlRegs_t ctrlRegs;
 	bool isVBlank;
 	bool maySetVBlankFlag;
 	bool mayTriggerNMI;
@@ -68,6 +92,7 @@ private:
 	u32* pixels;
 	Screen scr;
 	Rom rom;
+	u8 oamADDR;
 	u8 OAM[256];
 	u8 secondaryOAM[SECONDARY_OAM_CAP];
 	u8 internalPPUreg;// internal 0x2007 read buffer

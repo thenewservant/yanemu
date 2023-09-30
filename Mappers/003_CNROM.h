@@ -1,5 +1,5 @@
-#include "Mapper.h"
 #pragma once
+#include "Mapper.h"
 
 class M_003_CNROM : public Mapper {
 protected:
@@ -12,7 +12,7 @@ public:
 	void wrCPU(u16 where, u8 what); 
 	u8 rdPPU(u16 where);
 	void wrPPU(u16 where, u8 what);
-	M_003_CNROM() :Mapper() {  
+	M_003_CNROM() :Mapper(), chrBank{ 0 }, currentChrRom{ 0 } {
 		prgBanks = new u8 * [2];
 		chrBanks = new u8 * [1];
 	};

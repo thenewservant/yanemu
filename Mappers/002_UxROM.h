@@ -12,6 +12,5 @@ public:
 	void wrCPU(u16 where, u8 what);
 	u8 rdPPU(u16 where);
 	void wrPPU(u16 where, u8 what);
-	M_002_UxROM():Mapper(){
-	};
+	M_002_UxROM():Mapper(){};
 };

@@ -1,40 +1,38 @@
 #include "firstAPU.h"
 #include "sound.h"
 
-// minimal APU excluding additional / game-specific sound channels.
-
-
 u8 dutyCycle1, dutyCycle2;
 u16 timer[4]; // timers for pulse 1 & 2, and triangle
-u16 p1timer = timer[0];
-u16 p2timer = timer[1];
-u16 tritimer = timer[2];
-u16 noisetimer = timer[3];
+u16 p1timer, p2timer, tritimer, noisetimer;
 
 u8 lengthCounter[4] // length counters for pulse 1 & 2, triangle, and noise
-, envelope[4] //envelope of pulse1, pulse2 and noise
+, volume[3]
+, envelope[3] //envelope of pulse1, pulse2 and noise
+, startFlag[3]
 , p1Halt, p2Halt, triHalt, noiseHalt;
 
-u8 triCountReload;
-u8 triLinCurrent;
+u8 triCountReload, triLinCurrent;
 
-u16 noiseBarrel =0x7FFF; //15 bits, init with 1's
+u16 noiseBarrel = 1; //15 bits, init with 1's
 u8 noiseMode; // >0: bit 6 xor'ed with bit 0; 0: bit 1 xor'ed with bit 0
 
 u8 status = 0; // status register at 0x4015
 
-u8 p1Stat = 0; //position in the duty cycle
-u8 p2Stat = 0;
+//position in the duty cycle
+u8 p1Stat = 0, p2Stat = 0;
 
 bool sweepNegate[2];
-
 bool sweepReload[2];
-
 bool sweepEnabled[2];
 	
 u8 sweepShift[2];
 u8 sweepPeriod[2];
 u8 dividerCounter[2];
+
+bool p1VolumeSelectFlag = false;
+bool p2VolumeSelectFlag = false;
+bool noiseVolumeSelectFlag = false;
+
 float pulse1() {
 	if (timer[0] < 8) {
 		return 0;
@@ -49,7 +47,7 @@ float pulse1() {
 			p1Stat %= 8;
 		}
 	}
-	return dutyLut[dutyCycle1][p1Stat] * envelope[0];
+	return dutyLut[dutyCycle1][p1Stat] * (p1VolumeSelectFlag?volume[0]: envelope[0]);
 }
 
 u8 pulse2() {
@@ -66,13 +64,11 @@ u8 pulse2() {
 			p2Stat %= 8;
 		}
 	}
-	return dutyLut[dutyCycle2][p2Stat] * envelope[1];
+	return dutyLut[dutyCycle2][p2Stat] * (p1VolumeSelectFlag ? volume[1] : envelope[1]);
 }
 
 u8 triStat = 0;
 bool linCntReloadFlag = false;
-float lastVal = 0;
-
 
 float triangle() {
 	static u16 lastVal = 0;
@@ -100,14 +96,12 @@ float noise() {
 		else {
 			noisetimer = timer[3];
 			feedback = 0x1 & (noiseBarrel ^ (noiseBarrel >> (noiseMode ? 6 : 1)));
-
-			noiseBarrel |= (feedback << 15);
 			noiseBarrel >>= 1;
+			noiseBarrel |= (feedback << 14);
 		}
 	}
-	return 1.0 * feedback * envelope[3];
+	return feedback * (noiseVolumeSelectFlag ? volume[2] : envelope[2]);
 }
-
 
 constexpr u16 dmcBaseAdress = 0xC000;
 
@@ -206,7 +200,6 @@ void tickLengthCounters() {
 
 	if (lengthCounter[1] && !p2Halt) {
 		lengthCounter[1] -= 1;
-
 	}
 	else if (!lengthCounter[1]) {
 		ram[0x4015] &= ~0b00000010;
@@ -289,15 +282,92 @@ void setFrameIntFlagIfIntInhibitIsClear() {
 	}
 }
 
+bool p1EnvStartFlag = false;
+bool p2EnvStartFlag = false;
+bool noiseEnvStartFlag = false;
+
+inline void tickP1Envelope() {
+	static u8 p1EnvDecay = 0;
+	static u8 p1EnvDivider = 0;
+	if (!p1EnvStartFlag) {
+		if (p1EnvDivider-- == 0) {
+			p1EnvDivider = volume[0];
+			if (envelope[0] != 0) {
+				envelope[0]--;
+			}
+			else {
+				if (p1Halt) {
+					envelope[0] = 15;
+				}
+			}
+		}
+	}
+	else {
+		p1EnvStartFlag = false;
+		p1EnvDivider = volume[0];
+		envelope[0] = 15;
+	}
+}
+
+inline void tickP2Envelope() {
+	static u8 p2EnvDecay = 0;
+	static u8 p2EnvDivider = 0;
+	if (!p2EnvStartFlag) {
+		if (p2EnvDivider-- == 0) {
+			p2EnvDivider = volume[1];
+			if (envelope[1] != 0) {
+				envelope[1]--;
+			}
+			else {
+				if (p2Halt) {
+					envelope[1] = 15;
+				}
+			}
+		}
+	}
+	else {
+		p2EnvStartFlag = false;
+		p2EnvDivider = volume[1];
+		envelope[1] = 15;
+	}
+}
+
+inline void tickNoiseEnvelope() {
+	static u8 noiseEnvDecay = 0;
+	static u8 noiseEnvDivider = 0;
+	if (!noiseEnvStartFlag) {
+		if (noiseEnvDivider-- == 0) {
+			noiseEnvDivider = volume[2];
+			if (envelope[2] != 0) {
+				envelope[2]--;
+			}
+			else {
+				if (noiseHalt) {
+					envelope[2] = 15;
+				}
+			}
+		}
+	}
+	else {
+		noiseEnvStartFlag = false;
+		noiseEnvDivider = volume[2];
+		envelope[2] = 15;
+	}
+}
+
+void tickEnvelopes() {
+	tickP1Envelope();
+	tickP2Envelope();
+	tickNoiseEnvelope();
+}
+
 void apuTick() {
-	
 	ticks += 0.5;
 	float tri = triangle();
 	float delta = dmc();
 	if ((ticks - (int)ticks) < 0.01) {
 		float p1 = pulse1();
 		float p2 = pulse2();
-		
 		float ns = noise();
 
 		if (((int)(2 * ticks) % 40) == 0) {
@@ -309,29 +379,27 @@ void apuTick() {
 	}
 
 	if (ticks == 3728.5) {
-		//tickEnvelopes();
+		tickEnvelopes();
 		ticktriangleLinCount();
 	}
 	else if (ticks == 7456.5) {
-		//tickEnvelopes();
+		tickEnvelopes();
 		ticktriangleLinCount();
 		tickLengthCounters();
 		tickSweeps();
 	}
 	else if (ticks == 11185.5) {
-		//tickEnvelopes();
+		tickEnvelopes();
 		ticktriangleLinCount();
 	}
 
 	if (APU_MODE_4_STEPS) {
 
 		 if (ticks == 14914) {
-			
-		
 			setFrameIntFlagIfIntInhibitIsClear();
 		}
 		else if (ticks == 14914.5) {
-			//tickEnvelopes();
+			tickEnvelopes();
 			ticktriangleLinCount();
 			tickLengthCounters();
 			tickSweeps();
@@ -346,7 +414,7 @@ void apuTick() {
 			//setFrameIntFlagIfIntInhibitIsClear();
 		}
 		else if (ticks == 18640.5) {
-			//tickEnvelopes();
+			tickEnvelopes();
 			ticktriangleLinCount();
 			tickLengthCounters();
 			tickSweeps();
@@ -358,18 +426,15 @@ void apuTick() {
 	}
 }
 
-void tickEnvelopes() {
-
-}
 
 void updateAPU(u16 where) {
-
 	switch (where) {
 	//P1
 	case 0x4000:
 		p1Halt = ram[0x4000] & 0x20;
 		dutyCycle1 = (ram[0x4000] & DUTY_CYCLE) >> 6;
-		envelope[0] = ram[0x4000] & 0x0F;
+		volume[0] = ram[0x4000] & 0x0F;
+		p1VolumeSelectFlag = ram[0x4000] & 0x10;
 		break;
 	case 0x4001:
 		sweepEnabled[0] = ram[0x4001] & 0x80;
@@ -384,13 +449,15 @@ void updateAPU(u16 where) {
 		lengthCounter[0] = lengthCounterLUT[((ram[0x4007] >> 3) & 0b00011111)];
 		timer[0] = ram[0x4002] | ((ram[0x4003] & TIMER_HIGH) << 8); //p1
 		p1Stat = 0;
+		p1EnvStartFlag = true;
 		break;
 
 	//P2
 	case 0x4004:
 		p2Halt = ram[0x4004] & 0x20;
 		dutyCycle2 = (ram[0x4004] & DUTY_CYCLE) >> 6;
-		envelope[1] = ram[0x4004] & 0x0F;
+		volume[1] = ram[0x4004] & 0x0F;
+		p2VolumeSelectFlag = ram[0x4004] & 0x10;
 		break;
 	case 0x4005:
 		sweepEnabled[1] = ram[0x4005] & 0x80;
@@ -405,6 +472,7 @@ void updateAPU(u16 where) {
 		lengthCounter[1] = lengthCounterLUT[((ram[0x4007] >> 3) & 0b00011111)];
 		timer[1] = ram[0x4006] | ((ram[0x4007] & TIMER_HIGH) << 8); //p1
 		p2Stat = 0;
+		p2EnvStartFlag = true;
 		break;
 
 	//TRIANGLE
@@ -426,7 +494,9 @@ void updateAPU(u16 where) {
 	//NOISE
 	case 0x400C:
 		noiseHalt = ram[0x400C] & 0x20;
-		envelope[3] = ram[0x400C] & 0x0F;
+		volume[2] = ram[0x400C] & 0x0F;
+		noiseVolumeSelectFlag = ram[0x400C] & 0x10;
+		break;
 	case 0x400E:
 		noiseMode = ram[0x400E] & 0x80;
 		timer[3] = noiseTimerLUT[VIDEO_MODE][(ram[0x400E] & 0x0F)]; //noise
@@ -434,6 +504,7 @@ void updateAPU(u16 where) {
 		break;
 	case 0x400F:
 		lengthCounter[3] = lengthCounterLUT[(ram[0x400F] >> 3) & 0b00011111];
+		noiseEnvStartFlag = true;
 		break;
 
 	//DMC
@@ -448,7 +519,6 @@ void updateAPU(u16 where) {
 		break;
 	case 0x4012:
 		dmcSampleAdress = dmcBaseAdress | (ram[0x4012] << 6);
-
 		break;
 	case 0x4013:
 		dmcSampleLength = 0xFFF & ((ram[0x4013] << 4) + 1);
@@ -474,5 +544,4 @@ void updateAPU(u16 where) {
 		break;
 	default: break;
 	}
-
 }

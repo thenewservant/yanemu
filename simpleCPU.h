@@ -8,18 +8,17 @@
 //import chrono time libs
 #include <fstream>
 #include <chrono>
-#include <thread>
 #include <time.h>
 #ifdef _WIN32
 #include <windows.h>
 //#include "sound.h"
 #endif
 
+#include "types.h"
+
 #define E _illegal
 #define PAL_CPU_CLOCK_DIVIDER 16
 #define NTSC_CPU_CLOCK_DIVIDER 12
-#define NOP (void)0
-#define S 0x00
 #define STACK_END 0x100
 
 #define N_FLAG 0b10000000
@@ -42,13 +41,9 @@
 #define NTSC 1
 #define VIDEO_MODE NTSC
 
-typedef uint8_t u8;
-typedef uint16_t u16;
-typedef uint32_t u32;
-typedef uint64_t u64;
+
 
 extern u8 ram[];
-extern u8 mirror;
 
 static const uint8_t _6502InstBaseCycles[] = {
   7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
@@ -68,9 +63,6 @@ static const uint8_t _6502InstBaseCycles[] = {
   2,6,2,8,3,3,5,5,2,2,2,2,4,4,6,6,
   2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7
 };
-typedef std::chrono::high_resolution_clock Time;
-typedef std::chrono::microseconds ms;
-typedef std::chrono::duration<float> fsec;
 
 class Cpu {
 private:
@@ -89,7 +81,5 @@ void specialCom();
 void addCycle();
 void manualIRQ();
 void _rst();
-void changeMirror();
 u32 getCycles();
-void rstCtrl();
 #endif

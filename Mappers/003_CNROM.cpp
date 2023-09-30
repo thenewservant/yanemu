@@ -4,15 +4,15 @@
 void M_003_CNROM::setPrgRom(u8* prgRom, u8 PRsize) {
 	prgBanks[0] = prgRom;
 	switch (PRsize) {
-		case 1:
-			prgBanks[1] = prgRom;
-			break;
-		case 2:
-			prgBanks[1] = prgRom + 0x4000;
-			break;
-		default:
-			printf("\nError: PRG ROM size not supported\n");
-			exit(1);
+	case 1:
+		prgBanks[1] = prgRom;
+		break;
+	case 2:
+		prgBanks[1] = prgRom + 0x4000;
+		break;
+	default:
+		printf("\nError: PRG ROM size not supported\n");
+		exit(1);
 	}
 }
 
@@ -35,8 +35,8 @@ u8 M_003_CNROM::rdCPU(u16 where) {
 }
 
 void M_003_CNROM::wrCPU(u16 where, u8 what) {
-	if (where & 0x8000){
-		currentChrRom = chrBank + (what & (chrRomSize - 1)) *0x2000;
+	if (where & 0x8000) {
+		currentChrRom = chrBank + (what & (chrRomSize - 1)) * 0x2000;
 	}
 }
 
@@ -44,6 +44,6 @@ u8 M_003_CNROM::rdPPU(u16 where) {
 	return currentChrRom[where];
 }
 
-void M_003_CNROM::wrPPU(u16 where, u8 what) { 
+void M_003_CNROM::wrPPU(u16 where, u8 what) {
 	currentChrRom[where] = what;
 }

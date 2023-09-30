@@ -3,7 +3,6 @@
 
 
 u8 oamADDR = 0;
-u8** ppuMemSpace = (u8**)calloc(1 + 4, sizeof(u8*)); // for now, 1 slot for PT, 4 for NT.
 u8 spriteContainer[4][4*SECONDARY_OAM_CAP + 8] = { 0 }; /* contains sprite pattern data for a single scanline.
 											1st row - raw sprite priority (for this pixel),
 											2nd row - calculated pixel output according to secondary OAM index,
@@ -13,9 +12,7 @@ u8 spriteContainer[4][4*SECONDARY_OAM_CAP + 8] = { 0 }; /* contains sprite patte
 
 u16 PPU::paletteMap(u16 where) { //compensates specific mirroring for palettes (0x3F10/0x3F14/0x3F18/0x3F1C are mirrors of 0x3F00/0x3F04/0x3F08/0x3F0C) till 0x3FFF
 	u16 tmp = where & 0x3F1F;
-	if (tmp & 0x0003) {
-		return tmp;
-	} else if (tmp & 0x0010) {
+	if (!(tmp & 0x0003) && (tmp & 0x0010)) {
 		return tmp & ~0x0010;
 	}
 	else {
@@ -68,25 +65,25 @@ u8 PPU::rdVRAM(u16 where) {
 }
 
 void PPU::incCoarseX() {
-	if ((regs.v & 0x1F) == 31) {
-		regs.v ^= 0x041F; //reset coarse X and switch horizontal nametable
+	if ((scrollRegs.v & 0x1F) == 31) {
+		scrollRegs.v ^= 0x041F; //reset coarse X and switch horizontal nametable
 	}
 	else {
-		regs.v++;
+		scrollRegs.v++;
 	}
 }
 
 void PPU::incFineY() {
-	regs.v += 0x1000;
-	if (regs.v & 0x8000) {
-		switch (regs.v & 0x03E0) {
+	scrollRegs.v += 0x1000;
+	if (scrollRegs.v & 0x8000) {
+		switch (scrollRegs.v & 0x03E0) {
 		case 928:		// switch vertical nametable
-			regs.v ^= 0x0800;                   
+			scrollRegs.v ^= 0x0800;                   
 		case 992:		// coarse Y gets 0, nametable not switched
-			regs.v &= ~0x83E0;					
+			scrollRegs.v &= ~0x83E0;			
 			break;
 		default:		//increment coarse Y
-			regs.v += 0x8020;
+			scrollRegs.v += 0x8020;
 			break;
 		}
 	}
@@ -227,7 +224,7 @@ void PPU::BGRenderer() {
 
 	if (cycle < 257) {
 		if (BG_RENDERING && (LEFTMOST_BG_SHOWN || ((cycle) > 8))) {
-			shift = 1 << ((7 - regs.x));
+			shift = 1 << ((7 - scrollRegs.x));
 			bgOpaque = ((patternSR[SR_LSB] & (shift << 8)) > 0) + 2 * ((patternSR[SR_MSB] & (shift << 8)) > 0);
 			bgVramColor = 0x3F00 + 4 * (((attributeSR[SR_LSB] & shift) > 0) + 2 * ((attributeSR[SR_MSB] & shift) > 0)) //offset to right palette
 				+ bgOpaque; // actual pattern data
@@ -253,7 +250,8 @@ void PPU::BGRenderer() {
 		switch (VIDEO_MODE) {
 		case NTSC:
 			if ((scanLine > 7) && (scanLine < 232)) {
-				pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] = (bgOpaque && spriteOpaque) ? (priority ? bgPIX : spritePIX) : ((spriteOpaque&&SPRITE_RENDERING) ? spritePIX : bgPIX);
+				//pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] =	(!(ram[0x2001] & 0b00000001))?	(	(bgOpaque && spriteOpaque) ? (priority ? bgPIX : spritePIX) : ((spriteOpaque&&SPRITE_RENDERING) ? spritePIX : bgPIX)) : 0xFFFFFF00; // greyscale characterisation (white here for mere testing)
+				pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] =  (bgOpaque && spriteOpaque) ? (priority ? bgPIX : spritePIX) : ((spriteOpaque && SPRITE_RENDERING) ? spritePIX : bgPIX) ;
 			}
 			break;
 		case PAL:
@@ -266,10 +264,8 @@ void PPU::BGRenderer() {
 	if (cycle < 337) {
 		patternSR[SR_LSB] <<= 1;
 		patternSR[SR_MSB] <<= 1;
-
 		attributeSR[SR_LSB] <<= 1;
 		attributeSR[SR_MSB] <<= 1;
-
 		attributeSR[SR_LSB] |= (nextTilePaletteLatch[SR_LSB]);
 		attributeSR[SR_MSB] |= (nextTilePaletteLatch[SR_MSB]);
 	}
@@ -279,7 +275,7 @@ void PPU::BGRenderer() {
 		tile = rdVRAM(0x2000 | COARSE_V); // raw 2x2 tile ID fetch
 		break;
 	case AT_CYCLE:
-		attr = rdVRAM(0x23C0 | (regs.v & 0x0C00) | ((regs.v >> 4) & 0x38) | ((regs.v >> 2) & 0x07));
+		attr = rdVRAM(0x23C0 | (scrollRegs.v & 0x0C00) | ((scrollRegs.v >> 4) & 0x38) | ((scrollRegs.v >> 2) & 0x07));
 		requiredShifting = 2 * (2 * ((COARSE_V & 64) != 0) + ((COARSE_V & 2) != 0));// 4 quadrants, 2 bits each. oddness of y>>1 is the most significant bit.
 		break;
 	case BG_LSB_CYCLE:
@@ -301,6 +297,7 @@ void PPU::BGRenderer() {
 }
 
 void PPU::sequencer() {
+	static u8 finalPPUcyclesBeforeNMI = 0;
 	static bool canFinallyNMI = false;
 	if (scanLine < 240) {
 		if (EITHER_RENDERING) {
@@ -315,7 +312,7 @@ void PPU::sequencer() {
 			}
 			
 			else if (cycle == 257) {
-				regs.v = (regs.v & ~0x41F) | (0x41F & regs.t); // hor (v) = hor(t)
+				scrollRegs.v = (scrollRegs.v & ~0x41F) | (0x41F & scrollRegs.t); // hor (v) = hor(t)
 			}
 		}
 		else {
@@ -345,9 +342,13 @@ void PPU::sequencer() {
 			canFinallyNMI = true;
 		}
 		if (canFinallyNMI && getCycles()) {
-			_nmi();
-			canFinallyNMI = false;
-			nmiPending = false;
+			if (finalPPUcyclesBeforeNMI++ == 0) {
+				_nmi();
+				canFinallyNMI = false;
+				nmiPending = false;
+				finalPPUcyclesBeforeNMI = 0;
+			}
+			
 		}
 	}
 
@@ -357,10 +358,10 @@ void PPU::sequencer() {
 				incCoarseX();
 			}
 			else if (cycle == 257) {
-				regs.v = (regs.v & ~0x41F) | (0x41F & regs.t); // hor (v) = hor(t)
+				scrollRegs.v = (scrollRegs.v & ~0x41F) | (0x41F & scrollRegs.t); // hor (v) = hor(t)
 			}
 			else if ((cycle >= 280) && (cycle <= 304)) {
-				regs.v = (regs.v & ~0x7BE0) | (regs.t & 0x7BE0); // vert (v) = vert(t)
+				scrollRegs.v = (scrollRegs.v & ~0x7BE0) | (scrollRegs.t & 0x7BE0); // vert (v) = vert(t)
 			}
 			else if (cycle > 320) {
 				BGRenderer();
@@ -389,7 +390,6 @@ void PPU::tick() {
 		if (oddFrame ) {
 			cycle = 0;
 			scanLine = 0;
-			
 		}
 		OverrideFrameOddEven = true;
 		oddFrame ^= 1;
@@ -398,7 +398,6 @@ void PPU::tick() {
 		maySetVBlankFlag = true;
 		mayTriggerNMI = true;
 	}
-
 	scanLine %= 262;
 	sequencer();
 	cycle++;
@@ -406,8 +405,8 @@ void PPU::tick() {
 
 PPU::PPU(u32* px, Screen sc, Rom rom) :
 	OAM{0}, internalPPUreg(0), frame(0), cycle(0), scanLine(261),
-	isVBlank(false), scr(sc), pixels(px), secondaryOAM{0}, regs{0},
-	ppuRam{0}, mayTriggerNMI{ true }, maySetVBlankFlag{ true }
+	isVBlank(false), scr(sc), pixels(px), secondaryOAM{0}, scrollRegs{0},
+	ppuRam{ 0 }, mayTriggerNMI{ true }, maySetVBlankFlag{ true }, oamADDR{ 0 }
 {
 	ram[0x2002] = 0b10000000;
 	this->mapper = rom.getMapper();
@@ -422,14 +421,14 @@ u8 PPU::readPPUSTATUS() {
 		}
 	}
 	
-	regs.w = 0;
+	scrollRegs.w = 0;
 	u8 tmp = ram[0x2002];
 	ram[0x2002] &= ~0b10000000;
 	return tmp;
 }
 
 void PPU::writePPUCTRL(u8 what) {
-	regs.t = ((what & 0x3) << 10) | (regs.t & 0x73FF);
+	scrollRegs.t = ((what & 0x3) << 10) | (scrollRegs.t & 0x73FF);
 	if ((ram[0x2002] & 0x80) && (!(ram[0x2000] & 0x80)) && (what & 0x80)) {
 		nmiPending=true;
 	}
@@ -443,26 +442,26 @@ void PPU::writePPUMASK(u8 what) {
 }
 
 void PPU::writePPUSCROLL(u8 what) {
-	if (regs.w == 0) {
-		regs.t = ((what & ~0b111) >> 3) | (regs.t & 0b111111111100000);
-		regs.x = what & 0b111;
+	if (scrollRegs.w == 0) {
+		scrollRegs.t = ((what & ~0b111) >> 3) | (scrollRegs.t & 0b111111111100000);
+		scrollRegs.x = what & 0b111;
 	}
 	else {
-		regs.t = ((what & ~0b111) << 2) | (regs.t & 0b111110000011111);
-		regs.t = ((what & 0b111) << 12) | (regs.t & 0b000111111111111);
+		scrollRegs.t = ((what & ~0b111) << 2) | (scrollRegs.t & 0b111110000011111);
+		scrollRegs.t = ((what & 0b111) << 12) | (scrollRegs.t & 0b000111111111111);
 	}
-	regs.w ^= 1;
+	scrollRegs.w ^= 1;
 }
 
 void PPU::writePPUADDR(u8 what) {
-	if (regs.w == 0) {
-		regs.t = ((what & 0b111111) << 8) | (regs.t & 0b00000011111111);
+	if (scrollRegs.w == 0) {
+		scrollRegs.t = ((what & 0b111111) << 8) | (scrollRegs.t & 0b00000011111111);
 	}
 	else {
-		regs.t = (regs.t & 0xFF00) | what;
-		regs.v = regs.t;
+		scrollRegs.t = (scrollRegs.t & 0xFF00) | what;
+		scrollRegs.v = scrollRegs.t;
 	}
-	regs.w ^= 1;
+	scrollRegs.w ^= 1;
 }
 
 void PPU::writePPU(u8 what) {
@@ -511,5 +510,5 @@ u8 PPU::readOAM() {
 }
 
 inline void PPU::incPPUADDR() {
-	regs.v += (ram[0x2000] & 4) ? 32 : 1;
+	scrollRegs.v += (ram[0x2000] & 4) ? 32 : 1;
 }

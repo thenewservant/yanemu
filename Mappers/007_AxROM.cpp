@@ -3,7 +3,7 @@
 void M_007_AxROM::setPrgRom(u8* prgRom, u8 PRsize) {
 	prg = prgRom;
 	prgRomSize = PRsize;
-	prgBanks[0] = prgRom;
+	prgBanks[0] = prgRom + (((prgRomSize / 2) - 1)) * 0x8000;
 }
 
 void M_007_AxROM::setChrRom(u8* chrRom, u8 CHRsize) {

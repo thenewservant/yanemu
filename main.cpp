@@ -3,6 +3,7 @@
 #include "simpleCPU.h"
 #include "ScreenTools.h"
 #include <Windows.h>
+#include <thread>
 
 u8 WindowScaleFactor = 4;
 
@@ -25,8 +26,8 @@ int main(int argc, char* argv[]) {
 	}
 #endif
 #ifdef MANUAL
-	//const char* gameFile = "blargg\\pputiming\\07-nmi_on_timing.nes";
-	const char* gameFile = "AxROM\\cobra.nes";
+	//const char* gameFile = "blargg\\pputiming\\06-suppression.nes";
+	const char* gameFile = "mmc3\\smb3.nes";
 	const char* gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
 	char* gamePath=(char*)malloc(100 *sizeof(char));
 	gamePath = strcpy(gamePath, gameDir);

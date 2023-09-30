@@ -23,8 +23,6 @@ void Screen::initSDLScreen() {
 }
 
 void Screen::endSDLApplication() {
-	free(pixels);
-
 	// Cleanup SDL
 	SDL_DestroyTexture(texture);
 	SDL_DestroyRenderer(renderer);
@@ -33,14 +31,12 @@ void Screen::endSDLApplication() {
 }
 
 Screen::Screen(u8 scaleFact) {
-	//pixels = (u32*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u32));
 	status = 0;
 	ScreenScaleFactor = scaleFact;
 	initSDLScreen();
 }
 
 Screen::Screen(u8 scaleFact, const char* title) {
-	//pixels = (u32*)malloc(SCREEN_WIDTH * SCREEN_HEIGHT * sizeof(u32));
 	status = 0;
 	ScreenScaleFactor = scaleFact;
 	this->title = title;
@@ -105,12 +101,6 @@ void Screen::checkPressKey(SDL_Event event) {
 		break;
 	case SDLK_m:
 		_nmi();
-		break;
-	case SDLK_c:
-		changeMirror();
-		break;
-	case SDLK_h:
-		rstCtrl();
 		break;
 	case SDLK_q:
 		needFullScreenToggle = true;

@@ -4,8 +4,8 @@
 #include <SDL.h>
 #include <cstdio>
 #include <Windows.h>
+#include "types.h"
 #include "simpleCPU.h"
-
 
 #define SCREEN_WIDTH 256
 #define SCREEN_HEIGHT 224

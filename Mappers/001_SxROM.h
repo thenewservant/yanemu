@@ -26,8 +26,6 @@ protected:
 	u8* chr;
 protected:
 	void chrUpdate();
-	void wrNT(u16 where, u8 what);
-	u8 rdNT(u16 where);
 	void setMirroring(u8 mir);
 public:
 	void setPrgRom(u8* prgRom, u8 PRsize);
@@ -36,6 +34,8 @@ public:
 	void wrCPU(u16 where, u8 what);
 	u8 rdPPU(u16 where);
 	void wrPPU(u16 where, u8 what);
+	void wrNT(u16 where, u8 what);
+	u8 rdNT(u16 where);
 	M_001_SxROM() :Mapper() {
 		prgBanks = new u8 * [2];
 		chrBanks = new u8 * [2];
