@@ -2,7 +2,6 @@
 #include "ppu.h"
 #include "simpleCPU.h"
 #include "ScreenTools.h"
-#include <Windows.h>
 #include <thread>
 
 u8 WindowScaleFactor = 4;
@@ -11,7 +10,9 @@ u8 WindowScaleFactor = 4;
  
 
 int main(int argc, char* argv[]) {
+#ifdef WIN32
 	SetProcessDPIAware();
+#endif
 #ifdef CLI
 	FreeConsole();
 	if (argc < 2) {
@@ -27,7 +28,7 @@ int main(int argc, char* argv[]) {
 #endif
 #ifdef MANUAL
 	//const char* gameFile = "blargg\\pputiming\\06-suppression.nes";
-	const char* gameFile = "mmc3\\smb3.nes";
+	const char* gameFile = "castlevania2.nes";
 	const char* gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
 	char* gamePath=(char*)malloc(100 *sizeof(char));
 	gamePath = strcpy(gamePath, gameDir);

@@ -17,7 +17,7 @@ protected:
 	//IRQ Specifics:
 
 	u8 irqCounter;
-	u8 irqReload;
+	u8 irqReloadFlag;
 	u8 irqLatch;
 	bool irqEnabled;
 protected:
@@ -27,8 +27,9 @@ protected:
 	void wrMirrorPrgRamCtrl(bool oddWrite, u8 what);
 	void wrIRQLatchReload(bool oddWrite, u8 what);
 	//IRQ disable/enable
-	void wrIRQActivate(bool oddWrite, u8 what);
+	void wrIRQActivate(bool oddWrite);
 	void irqCounterTick();
+	void acknowledgeNewScanline(bool risingEdge);
 	void setMirroring(u8 mir);
 public:
 	//void wrNT(u16 where, u8 what);

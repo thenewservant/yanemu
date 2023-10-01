@@ -29,24 +29,42 @@ void M_004_TxROM::wrMirrorPrgRamCtrl(bool oddWrite, u8 what) {
 }
 
 void M_004_TxROM::wrIRQLatchReload(bool oddWrite, u8 what) {
-
+	if (!oddWrite) {
+		irqLatch = what;
+	}
+	else {
+		irqReloadFlag = true;
+	}
 }
 
 
-void M_004_TxROM::wrIRQActivate(bool oddWrite, u8 what) {
+void M_004_TxROM::wrIRQActivate(bool oddWrite) {
 	if (!oddWrite) {
-		irqEnabled = true;
+		irqEnabled = false;
 		//TODO: Acknowledge Pending IRQ
 	}
 	else {
-		irqEnabled = false;
+		irqEnabled = true;
 	}
 }
 
 void M_004_TxROM::irqCounterTick() {
-	irqCounter--;
-	if (irqCounter == 0) {
-		irqCounter = irqReload;
+
+	if (irqCounter == 0 || irqReloadFlag) {
+		irqReloadFlag = false;
+		if ((irqCounter == 0 )&& irqEnabled) {
+			manualIRQ();
+		}
+		irqCounter = irqLatch;
+	}
+	else {
+		irqCounter--;
+	}
+}
+
+void M_004_TxROM::acknowledgeNewScanline(bool risingEdge) {
+	if (risingEdge) {
+		irqCounterTick();
 	}
 }
 
@@ -57,7 +75,7 @@ void M_004_TxROM::wrCPU(u16 where, u8 what) {
 	case 0x8000:wrBankRegisters(addrParity, what); break;
 	case 0xA000:wrMirrorPrgRamCtrl(addrParity, what); break;
 	case 0xC000:wrIRQLatchReload(addrParity, what); break;
-	case 0xE000:wrIRQActivate(addrParity, what); break;
+	case 0xE000:wrIRQActivate(addrParity); break;
 	default:break;
 	}
 }

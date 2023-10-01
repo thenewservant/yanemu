@@ -320,7 +320,11 @@ void PPU::sequencer() {
 			pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] = colors[1][rdVRAM(V) & 0x3F];
 			}
 		}
-
+		if (cycle == 256) {
+			if (!PAT_TB_PREFIX && SPRITE_PT) {
+				mapper->acknowledgeNewScanline(true);
+			}
+		}
 		if ((cycle >= 257) && (cycle <= 320)) {
 			oamADDR = 0;
 		}

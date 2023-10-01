@@ -29,7 +29,7 @@ public:
 	virtual u8 rdNT(u16 where);
 	virtual void wrNT(u16 where, u8 what);
 	void setMirroring(u8 mir);
-	virtual void acknowledgeNewScanline() {};
+	virtual void acknowledgeNewScanline(bool risingEdge) {};
 	Mapper() :
 		chrRomSize{ 0 }, prgRomSize{ 0 }, prg{ nullptr },
 		prgBanks{ nullptr }, chrBanks{ nullptr }, mirror{ 0 }, nameTables{ 0 } {};

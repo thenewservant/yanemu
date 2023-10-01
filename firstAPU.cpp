@@ -275,8 +275,7 @@ bool firstAPUCycleHalf() {
 }
 
 void setFrameIntFlagIfIntInhibitIsClear() {
-	if (0 && !(ram[0x4017] & 0b01000000)) {
-		printf("\nAPU Frame IRQ");
+	if (1 && !(ram[0x4017] & 0b01000000)) {
 		ram[0x4015] |= 0b01000000;
 		manualIRQ();
 	}
@@ -406,12 +405,12 @@ void apuTick() {
 		}
 		else if (ticks == 14915) {
 			ticks = 0;
-			//setFrameIntFlagIfIntInhibitIsClear();
+			setFrameIntFlagIfIntInhibitIsClear();
 		}
 		
 	}else{
 		 if (ticks == 14914.5) {
-			//setFrameIntFlagIfIntInhibitIsClear();
+			setFrameIntFlagIfIntInhibitIsClear();
 		}
 		else if (ticks == 18640.5) {
 			tickEnvelopes();
@@ -421,7 +420,7 @@ void apuTick() {
 		}
 		else if (ticks == 18641) {
 			ticks = 0;
-			//setFrameIntFlagIfIntInhibitIsClear();
+			setFrameIntFlagIfIntInhibitIsClear();
 		}
 	}
 }

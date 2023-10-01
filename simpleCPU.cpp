@@ -1,9 +1,8 @@
 #pragma warning(disable:4996)
 #include "simpleCPU.h"
-#include "ppu.h"
 #include "sound.h"
+#include "ppu.h"
 #include "Rom.h"
-
 //using namespace std;
 /*
 	_ : indicates a 6502 operation
@@ -25,7 +24,7 @@ u8 keys2 = 0;
 u8 keyLatchCtrl1 = 0; // controller 1 buttons
 u8 keyLatchCtrl2 = 0; // controller 2 buttons
 
-Rom MainRom;
+
 Mapper* mapper;
 PPU* ppu;
 
@@ -204,7 +203,7 @@ inline u8 zpgX() {
 }
 
 inline u16 indX() {
-	return ram[zpgX()] | (ram[(u8)(rd(pc) + xr + 1)] << 8);
+	return ram[zpgX()] | (ram[(u8)(zpgX() + 1)] << 8);
 }
 
 inline u16 indY(u8 cyc = 1) {
@@ -216,7 +215,7 @@ inline u16 indY(u8 cyc = 1) {
 	return w2;
 }
 
-inline void check_NZ(u16 obj) {
+inline void check_NZ(u8 obj) {
 	sr &= NEG_NZ_FLAGS;
 	sr |= (obj & N_FLAG) | ((obj == 0) << 1);
 }
@@ -233,6 +232,27 @@ void _nmi() {
 	wr(STACK_END | sp--, sr);
 	sr |= I_FLAG;
 	pc = ((rd(0xFFFB) << 8) | rd(0xFFFA));
+}
+
+
+void _00brk_() {
+	wr(STACK_END | sp--, (u8)((pc + 1) >> 8));
+	wr(STACK_END | sp--, (u8)(pc + 1));
+	wr(STACK_END | sp--, sr | B_FLAG);
+	sr |= I_FLAG;
+	pc = rd(0xFFFE) | (rd(0xFFFF) << 8);
+}
+
+void irq() {
+	wr(STACK_END | sp--, (u8)(pc >> 8));
+	wr(STACK_END | sp--, (u8)pc);
+	wr(STACK_END | sp--, sr | B_FLAG);
+	sr |= I_FLAG;
+	pc = rd(0xFFFE) | (rd(0xFFFF) << 8);
+}
+
+void manualIRQ() {
+	if (!(sr & I_FLAG)) irq();
 }
 
 void _rst() {
@@ -256,18 +276,6 @@ void _7DadcA() { _adc(rd(absArg(xr))); pc += 2; }
 void _79adcA() { _adc(rd(absArg(yr))); pc += 2; }
 void _61adcN() { _adc(rd(indX())); pc++; }
 void _71adcN() { _adc(rd(indY())); pc++; }
-
-void _00brk_() {
-	wr(STACK_END | sp--, (u8)((pc + 1) >> 8));
-	wr(STACK_END | sp--, (u8)(pc + 1));
-	wr(STACK_END | sp--, sr | B_FLAG);
-	sr |= I_FLAG;
-	pc = rd(0xFFFE) | (rd(0xFFFF) << 8);
-}
-
-void manualIRQ() {
-	if (!(sr & I_FLAG)) _00brk_();
-}
 
 inline void _and(u8 what) {
 	ac &= what;
@@ -305,6 +313,7 @@ void _B0bcsR() {
 void _F0beqR() {
 	pc += ((sr & Z_FLAG)) ? _rel() : 0;
 	pc++;
+
 }
 
 void _24bitZ() {
@@ -488,11 +497,13 @@ void _B4ldyZ() { _ldy(ram[zpgX()]); pc++; }
 void _ACldyA() { _ldy(rd(absAddr())); pc += 2; }
 void _BCldyA() { _ldy(rd(absArg(xr))); pc += 2; }
 
+u8 lol = 0;
 void _lsr(u16 where) {
 	u8 tmp = rd(where);
+	lol = tmp;
 	sr = sr & ~N_FLAG & ~C_FLAG | tmp & C_FLAG;
 	wr(where, tmp >> 1);
-	check_NZ(rd(where));
+	check_NZ(tmp>>1);
 }
 
 void _4AlsrC() {
@@ -536,9 +547,10 @@ void _28plpM() { //ignores flags (B and _)
 }
 
 inline void _asl(u16 where) {// one bit left shift, shifted out bit is preserved in carry
-	sr = sr & ~C_FLAG | ((rd(where) & N_FLAG) ? C_FLAG : 0);
-	wr(where, rd(where) << 1);
-	check_NZ(rd(where));
+	u8 data = rd(where);
+	sr = sr & ~C_FLAG | ((data & N_FLAG) ? C_FLAG : 0);
+	wr(where, data << 1);
+	check_NZ(data << 1);
 }
 void _0Aasl_() {
 	sr = sr & ~C_FLAG | ((ac & N_FLAG) ? C_FLAG : 0);
@@ -551,8 +563,9 @@ void _0EaslA() { _asl(absAddr()); pc += 2; }
 void _1EaslA() { _asl((absAddr()) + xr); pc += 2; }
 
 void _rol(u16 where) {
-	bool futureC = rd(where) & N_FLAG;
-	u8 what = (rd(where) << 1) | sr & C_FLAG;
+	u8 data = rd(where);
+	bool futureC = data & N_FLAG;
+	u8 what = (data << 1) | sr & C_FLAG;
 	wr(where, what);
 	sr = sr & ~C_FLAG | (u8)futureC;
 	check_NZ(what);
@@ -571,8 +584,9 @@ void _2ErolA() { _rol(absAddr()); pc += 2; }
 void _3ErolA() { _rol((absAddr()) + xr); pc += 2; }
 
 void _ror(u16 where) {
-	bool futureC = rd(where) & 1;
-	wr(where, (rd(where) >> 1) | ((sr & C_FLAG) ? N_FLAG : 0));
+	u8 data = rd(where);
+	bool futureC = data & 1;
+	wr(where, (data >> 1) | ((sr & C_FLAG) ? N_FLAG : 0));
 	sr = sr & ~C_FLAG | (u8)futureC;
 	check_NZ(rd(where));
 }
@@ -918,11 +932,10 @@ void Cpu::afficher() {
 
 int mainSYS(Screen scr, FILE* testFile) {
 	Rom rom(testFile);
-	MainRom = rom;
-	MainRom.printInfo();
-	mapper = MainRom.getMapper();
+	rom.printInfo();
+	mapper = rom.getMapper();
 	Cpu f(ram, ram);
-	PPU p(scr.getPixels(), scr, MainRom);
+	PPU p(scr.getPixels(), scr, rom);
 	ppu = &p;
 
 	soundmain();

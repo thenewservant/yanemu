@@ -3,7 +3,6 @@
 #define SCREENTOOLS_H
 #include <SDL.h>
 #include <cstdio>
-#include <Windows.h>
 #include "types.h"
 #include "simpleCPU.h"
 
