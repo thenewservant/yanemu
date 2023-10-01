@@ -35,7 +35,7 @@ int main(int argc, char* argv[]) {
 	gamePath = strcat(gamePath, gameFile);
 	FILE* droppedFile = fopen(gamePath, "rb");
 	Screen scr(WindowScaleFactor, "Game");
-#endif:
+#endif
 #ifdef DROP
 
 	SetProcessDPIAware();

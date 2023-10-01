@@ -1,7 +1,7 @@
 
 #pragma once
 #include "simpleCPU.h"
-#include <SDL.h>
+#include "ScreenTools.h"
 #include <stdio.h>
 
 #define APU_MODE_5_STEPS ((ram[0x4017] & 0x80) == 0x80)
