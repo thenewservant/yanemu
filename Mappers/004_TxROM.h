@@ -39,7 +39,11 @@ public:
 	u8 rdCPU(u16 where);
 	void wrCPU(u16 where, u8 what);
 	u8 rdPPU(u16 where);
-	void wrPPU(u16 where, u8 what) ;
+	void wrPPU(u16 where, u8 what);
+	u8* getPrgRam() { return prgRam; };
+	void setPrgRam(u8* ram) {
+		memcpy(prgRam, ram, 0x2000);
+	};
 	M_004_TxROM() :Mapper(),
 		wRamEnable(false), prgBankSwappedMode(false),
 		chrBankSwappedMode(false), prgRam{ 0 }, chrBankRegisters{ 0 },

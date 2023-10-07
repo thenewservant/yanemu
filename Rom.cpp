@@ -1,6 +1,8 @@
+#pragma warning(disable:4996)
 #include "Rom.h"
 
-Rom::Rom(FILE* romFile) {
+Rom::Rom(FILE* romFile) :filePath{ nullptr }, fileName{ nullptr } {
+	
 	if (romFile == NULL) {
 		printf("Error: ROM file not found");
 		exit(1);
@@ -25,7 +27,7 @@ Rom::Rom(FILE* romFile) {
 	prgRom = (u8*)malloc(prgRomSize * 0x4000 * sizeof(u8));
 	chrRom = (u8*)malloc(chrRomSize * 0x2000 * sizeof(u8));
 
-	if (!(prgRom || chrRom)) {
+	if (!(prgRom && chrRom)) {
 		printf("Error: not enough memory to load ROM");
 		exit(1);
 	}
@@ -41,6 +43,7 @@ Rom::Rom(FILE* romFile) {
 	case 3:mapper = new M_003_CNROM();break;
 	case 4:mapper = new M_004_TxROM();break;
 	case 7:mapper = new M_007_AxROM();break;
+	case 11:mapper = new M_011_COLOR_DREAMS();break;
 	default:
 		printf("Error: mapper type %d not supported yet", mapperType);
 		exit(1);
@@ -49,6 +52,14 @@ Rom::Rom(FILE* romFile) {
 	mapper->setPrgRom(prgRom, prgRomSize);
 	mapper->setChrRom(chrRom, chrRomSize);
 	mapper->setMirroring(mirror);
+	if (header[6] & 2) {
+		FILE* batteryFile = fopen("batterySave.bin", "rb");
+		if (batteryFile != NULL) {
+			printf("Found battery file, loading... \n");
+			fread(mapper->getPrgRam(), 0x2000, 1, batteryFile);
+			fclose(batteryFile);
+		}
+	}
 }
 
 void Rom::printInfo() {
@@ -57,7 +68,6 @@ void Rom::printInfo() {
 	printf("CHR ROM size: %d (%d KB)\n", chrRomSize, chrRomSize * 8);
 	printf("PRG ROM size: %d (%d KB)\n", prgRomSize, prgRomSize * 16);
 	printf("Cartdrige %s battery-backed PRG RAM\n", header[6] & 2 ? "has" : "does not have");
-	printf("PRG RAM size: %d\n", header[8]);
 	printf("Nes 2.0 Format? %s\n", header[7] & 0x08 ? "Yes" : "No");
 	printf("Trainer %s\n", header[6] & 4 ? "present" : "absent");
 }
@@ -66,4 +76,6 @@ Mapper* Rom::getMapper() {
 	return mapper;
 }
 
-Rom::Rom(){}
+bool Rom::hasBattery() {
+	return header[6] & 2;
+}

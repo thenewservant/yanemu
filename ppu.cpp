@@ -1,5 +1,5 @@
 #include "ppu.h"
-#include "firstAPU.h"
+#include "APU.h"
 
 
 u8 oamADDR = 0;
@@ -250,8 +250,8 @@ void PPU::BGRenderer() {
 		switch (VIDEO_MODE) {
 		case NTSC:
 			if ((scanLine > 7) && (scanLine < 232)) {
-				//pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] =	(!(ram[0x2001] & 0b00000001))?	(	(bgOpaque && spriteOpaque) ? (priority ? bgPIX : spritePIX) : ((spriteOpaque&&SPRITE_RENDERING) ? spritePIX : bgPIX)) : 0xFFFFFF00; // greyscale characterisation (white here for mere testing)
-				pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] =  (bgOpaque && spriteOpaque) ? (priority ? bgPIX : spritePIX) : ((spriteOpaque && SPRITE_RENDERING) ? spritePIX : bgPIX) ;
+				pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] =	(!(ram[0x2001] & 0b00000001))?	(	(bgOpaque && spriteOpaque) ? (priority ? bgPIX : spritePIX) : ((spriteOpaque&&SPRITE_RENDERING) ? spritePIX : bgPIX)) : 0xFFFFFF00; // greyscale characterisation (white here for mere testing)
+				//pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] =  (bgOpaque && spriteOpaque) ? (priority ? bgPIX : spritePIX) : ((spriteOpaque && SPRITE_RENDERING) ? spritePIX : bgPIX) ;
 			}
 			break;
 		case PAL:
@@ -297,7 +297,6 @@ void PPU::BGRenderer() {
 }
 
 void PPU::sequencer() {
-	static u8 finalPPUcyclesBeforeNMI = 0;
 	static bool canFinallyNMI = false;
 	if (scanLine < 240) {
 		if (EITHER_RENDERING) {
@@ -336,7 +335,7 @@ void PPU::sequencer() {
 			if (maySetVBlankFlag) {
 				ram[0x2002] |= 0b10000000;
 			}
-			if ((ram[0x2000] & 0x80)) {
+			if ((ram[0x2000] & 0x80) && mayTriggerNMI) {
 				nmiPending = true;
 			}
 		}
@@ -346,13 +345,12 @@ void PPU::sequencer() {
 			canFinallyNMI = true;
 		}
 		if (canFinallyNMI && getCycles()) {
-			if (finalPPUcyclesBeforeNMI++ == 0) {
+			if (mayTriggerNMI) {
 				_nmi();
-				canFinallyNMI = false;
-				nmiPending = false;
-				finalPPUcyclesBeforeNMI = 0;
 			}
-			
+
+			canFinallyNMI = false;
+			nmiPending = false;
 		}
 	}
 
@@ -398,11 +396,12 @@ void PPU::tick() {
 		OverrideFrameOddEven = true;
 		oddFrame ^= 1;
 	}
+	
+	scanLine %= 262;
 	if ((scanLine == 0) && (cycle == 0)) {
 		maySetVBlankFlag = true;
 		mayTriggerNMI = true;
 	}
-	scanLine %= 262;
 	sequencer();
 	cycle++;
 }
@@ -419,7 +418,7 @@ PPU::PPU(u32* px, Screen sc, Rom rom) :
 
 u8 PPU::readPPUSTATUS() {
 	if ((scanLine == 241)) {
-		if ((cycle == 1)) { // passes blargg's test, but cycle should be 0 (one ppu cycle before setting )
+		if (1 <= cycle && cycle <= 3) { 
 			maySetVBlankFlag = false;
 			mayTriggerNMI = false;
 		}
@@ -434,7 +433,10 @@ u8 PPU::readPPUSTATUS() {
 void PPU::writePPUCTRL(u8 what) {
 	scrollRegs.t = ((what & 0x3) << 10) | (scrollRegs.t & 0x73FF);
 	if ((ram[0x2002] & 0x80) && (!(ram[0x2000] & 0x80)) && (what & 0x80)) {
-		nmiPending=true;
+		if (!((scanLine == 261) && (cycle ==0))) {
+			nmiPending = true;
+		}
+		
 	}
 	ram[0x2000] = what;
 }
@@ -496,6 +498,7 @@ void PPU::updateOam() { // OAMDMA (0x4014) processing routine
 	if (firstAPUCycleHalf()) {
 		addCycle();
 	}
+	
 }
 
 void PPU::writeOAM(u8 what) {

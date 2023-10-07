@@ -168,6 +168,12 @@ u8 Screen::listener() {
 		case SDL_WINDOWEVENT:
 			switch (keyEvent.window.event) {
 			case SDL_WINDOWEVENT_CLOSE:
+				if (romHasBattery() && getMapper()->getPrgRam()) {
+
+					printf("\nSaving Work Ram...\n");
+					FILE* chrRamFile = fopen("batterySave.bin", "wb");
+					fwrite(getMapper()->getPrgRam(), 0x2000, 1, chrRamFile);
+				}
 				printf("Window closed\n");
 				exit(0);
 			case SDL_WINDOWEVENT_RESIZED:

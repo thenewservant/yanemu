@@ -36,7 +36,13 @@ public:
 	void wrPPU(u16 where, u8 what);
 	void wrNT(u16 where, u8 what);
 	u8 rdNT(u16 where);
-	M_001_SxROM() :Mapper() {
+	u8* getPrgRam() { return prgRamBanks[0]; };
+	void setPrgRam(u8* ram) {
+		memcpy(prgRamBanks[0], ram, 0x2000);
+	};
+	M_001_SxROM() :Mapper(), chr0{ 0 }, chr1{ 0 }, chr{ 0 }, chrSizeMode{ 0 },
+		wRamEnable{ 0 }, prgSizeMode{ 0 }, prgRamBanks{ 0 }, chrRamBanks{ 0 }
+	{
 		prgBanks = new u8 * [2];
 		chrBanks = new u8 * [2];
 		mirror = SINGLE_SCREEN_0;

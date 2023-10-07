@@ -12,7 +12,8 @@ public:
 	void wrCPU(u16 where, u8 what);
 	u8 rdPPU(u16 where);
 	void wrPPU(u16 where, u8 what);
-	M_000_NROM() : Mapper() {
+	u8* getPrgRam() { return ramBank; }
+	M_000_NROM() : Mapper(), chrBank{ 0 }, ramBank{ 0 } {
 		prgBanks = new u8 * [2];
 	};
 };

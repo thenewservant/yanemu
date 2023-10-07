@@ -162,7 +162,7 @@ inline void wr(u16 where, u8 what) {
 		case 0x4014:
 			ram[0x4014] = what;
 			ppu->updateOam();
-			cycles += 513;
+			cycles += 513 + (cycles & 1);
 			return;
 		case 0x4016:
 
@@ -293,8 +293,9 @@ void _31andN() { _and(rd(indY())); pc++; }
 int8_t _rel() {
 	u8 rdTmp = rd(pc);
 	int8_t relTmp = (rdTmp & N_FLAG) ? -((~rdTmp) + 1) : rdTmp;
-	if ((rdTmp & 0xFF00) != ((rdTmp + relTmp) & 0xFF00)) {
+	if ((pc & 0xFF00) != ((((u16)(pc + relTmp +1)) & 0xFF00))) {
 		cycles += 1;
+		//printf("%4X, %4X\n", (pc ), (((u16)(pc + relTmp)) ));
 	}
 	cycles += 1;
 	return relTmp;
@@ -497,10 +498,8 @@ void _B4ldyZ() { _ldy(ram[zpgX()]); pc++; }
 void _ACldyA() { _ldy(rd(absAddr())); pc += 2; }
 void _BCldyA() { _ldy(rd(absArg(xr))); pc += 2; }
 
-u8 lol = 0;
 void _lsr(u16 where) {
 	u8 tmp = rd(where);
-	lol = tmp;
 	sr = sr & ~N_FLAG & ~C_FLAG | tmp & C_FLAG;
 	wr(where, tmp >> 1);
 	check_NZ(tmp>>1);
@@ -585,10 +584,11 @@ void _3ErolA() { _rol((absAddr()) + xr); pc += 2; }
 
 void _ror(u16 where) {
 	u8 data = rd(where);
-	bool futureC = data & 1;
-	wr(where, (data >> 1) | ((sr & C_FLAG) ? N_FLAG : 0));
-	sr = sr & ~C_FLAG | (u8)futureC;
-	check_NZ(rd(where));
+	u8 futureC = data & 1;
+	u8 tmp = (data >> 1) | ((sr & C_FLAG) ? N_FLAG : 0);
+	wr(where, tmp);
+	sr = sr & ~C_FLAG | futureC;
+	check_NZ(tmp);
 }
 void _6ArorC() {
 	bool futureC = ac & 1;
@@ -878,9 +878,20 @@ void _04nopZ() { pc++; }
 void _0CnopA() { pc += 2; }
 void _1CnopA() { absArg(xr); pc += 2; }
 
-void _illegal() {
-	printf("\nThis ILLEGAL OPCODE is not implemented YET! :%X, %X, %X - pc:%4X\n", rd(pc - 1), rd(pc), rd(pc + 1), pc - 1);
-	exit(0x1);
+void _8BaneM() {
+	pc++;
+}
+
+void _93shaN() {
+	pc++;
+}
+
+void _9BtasA() {
+	pc += 2;
+}
+
+void _BBlasA() {
+	pc += 2;
 }
 
 void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, _03sloN, _04nopZ, _05oraZ, _06aslZ, _07sloZ,
@@ -900,13 +911,13 @@ void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, _03sloN, _04nopZ, _05oraZ, 
 						_6FrraA, _70bvsR, _71adcN, _02jamM, _73rraN, _04nopZ, _75adcZ, _76rorZ,
 						_77rraZ, _78seiM, _79adcA, _EAnopM, _7BrraA, _1CnopA, _7DadcA, _7ErorA,
 						_7FrraA, _80nopI, _81staZ, _80nopI, _83saxN, _84styZ, _85staZ, _86stxZ,
-						_87saxZ, _88deyM, _80nopI, _8AtxaM, E, _8CstyA, _8DstaA, _8EstxA,
-						_8FsaxA, _90bccR, _91staZ, _02jamM, E, _94styZ, _95staZ, _96stxZ,
-						_97saxZ, _98tyaM, _99staA, _9AtxsM, E, _9CshyA, _9DstaA, _9EshxA,
+						_87saxZ, _88deyM, _80nopI, _8AtxaM, _8BaneM, _8CstyA, _8DstaA, _8EstxA,
+						_8FsaxA, _90bccR, _91staZ, _02jamM, _93shaN, _94styZ, _95staZ, _96stxZ,
+						_97saxZ, _98tyaM, _99staA, _9AtxsM, _9BtasA, _9CshyA, _9DstaA, _9EshxA,
 						_9FshaA, _A0ldyI, _A1ldaN, _A2ldxI, _A3laxN, _A4ldyZ, _A5ldaZ, _A6ldxZ,
 						_A7laxZ, _A8tayM, _A9ldaI, _AAtaxM, _ABlxaI, _ACldyA, _ADldaA, _AEldxA,
 						_AFlaxA, _B0bcsR, _B1ldaN, _02jamM, _B3laxN, _B4ldyZ, _B5ldaZ, _B6ldxZ,
-						_B7laxZ, _B8clvM, _B9ldaA, _BAtsxM, E, _BCldyA, _BDldaA, _BEldxA,
+						_B7laxZ, _B8clvM, _B9ldaA, _BAtsxM, _BBlasA, _BCldyA, _BDldaA, _BEldxA,
 						_BFlaxA, _C0cpyI, _C1cmpN, _80nopI, _C3dcpN, _C4cpyZ, _C5cmpZ, _C6decZ,
 						_C7dcpZ, _C8inyM, _C9cmpI, _CAdexM, _CBsbxI, _CCcpyA, _CDcmpA, _CEdecA,
 						_CFdcpA, _D0bneR, _D1cmpN, _02jamM, _D3dcpN, _04nopZ, _D5cmpZ, _D6decZ,
@@ -930,8 +941,19 @@ void Cpu::afficher() {
 	}
 }
 
+Rom* pubRom;
+
+bool romHasBattery() {
+	return pubRom->hasBattery();
+}
+
+Mapper* getMapper() {
+	return mapper;
+}
+
 int mainSYS(Screen scr, FILE* testFile) {
 	Rom rom(testFile);
+	pubRom = &rom; 
 	rom.printInfo();
 	mapper = rom.getMapper();
 	Cpu f(ram, ram);
@@ -956,7 +978,7 @@ int mainSYS(Screen scr, FILE* testFile) {
 					if (cycles == 0) {
 						u8 op = rd(pc++);
 						cycles += _6502InstBaseCycles[op];
-						comCount[op]++;
+						//comCount[op]++;
 						opCodePtr[op]();
 					}
 					cycles--;

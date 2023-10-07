@@ -5,6 +5,7 @@
 #include <cstdio>
 #include "types.h"
 #include "simpleCPU.h"
+#include "Rom.h"
 
 #define SCREEN_WIDTH 256
 #define SCREEN_HEIGHT 224

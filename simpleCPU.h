@@ -9,14 +9,12 @@
 #include <fstream>
 #include <chrono>
 #include <time.h>
+#include "types.h"
+#include "Mappers/Mapper.h"
 #ifdef _WIN32
-#include <windows.h>
-//#include "sound.h"
+	#include <windows.h>
 #endif
 
-#include "types.h"
-
-#define E _illegal
 #define PAL_CPU_CLOCK_DIVIDER 16
 #define NTSC_CPU_CLOCK_DIVIDER 12
 #define STACK_END 0x100
@@ -41,11 +39,9 @@
 #define NTSC 1
 #define VIDEO_MODE NTSC
 
-
-
 extern u8 ram[];
 
-static const uint8_t _6502InstBaseCycles[] = {
+static const uint8_t _6502InstBaseCycles[256] = {
   7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
   2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
   6,6,2,8,3,3,5,5,4,2,2,2,4,4,6,6,
@@ -81,5 +77,7 @@ void specialCom();
 void addCycle();
 void manualIRQ();
 void _rst();
+bool romHasBattery();
+Mapper* getMapper();
 u32 getCycles();
 #endif

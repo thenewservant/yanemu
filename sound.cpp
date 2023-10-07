@@ -1,15 +1,8 @@
 #include "sound.h"
 #include "ScreenTools.h"
 #include <stdio.h>
-#include <stdbool.h>
-#include <math.h>
-#include <stdint.h>
 
 SDL_AudioDeviceID dev;
-
-SDL_AudioDeviceID getDev() {
-    return dev;
-}
 
 int soundmain() {
 

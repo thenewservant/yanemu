@@ -3,12 +3,14 @@
 #include <cstdio>
 #include <cstdlib>
 #include "../types.h"
-#include "../simpleCPU.h"
 
-#define HORIZONTAL 0
-#define VERTICAL 1
-#define SINGLE_SCREEN_0 2
-#define SINGLE_SCREEN_1 3
+enum MirroringModes {
+	HORIZONTAL,
+	VERTICAL,
+	SINGLE_SCREEN_0,
+	SINGLE_SCREEN_1,
+	FOUR_SCREEN
+};
 
 class Mapper{
 protected:
@@ -16,6 +18,7 @@ protected:
 	u8 chrRomSize; // in 8kb units
 	u8** prgBanks;
 	u8** chrBanks;
+	u8* chr;
 	u8* prg;
 	u8 nameTables[4][0x400];
 	u8 mirror;
@@ -29,8 +32,10 @@ public:
 	virtual u8 rdNT(u16 where);
 	virtual void wrNT(u16 where, u8 what);
 	void setMirroring(u8 mir);
-	virtual void acknowledgeNewScanline(bool risingEdge) {};
+	virtual void acknowledgeNewScanline(bool risingEdge) { (void)risingEdge; };
+	virtual u8* getPrgRam() { return (u8*)0; };
+	virtual void setPrgRam(u8* ram) { (void)ram; };
 	Mapper() :
 		chrRomSize{ 0 }, prgRomSize{ 0 }, prg{ nullptr },
-		prgBanks{ nullptr }, chrBanks{ nullptr }, mirror{ 0 }, nameTables{ 0 } {};
+		prgBanks{ nullptr }, chrBanks{ nullptr }, mirror{ 0 }, nameTables{ 0 }, chr{ 0 } {};
 };

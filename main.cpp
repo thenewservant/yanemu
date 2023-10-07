@@ -27,8 +27,8 @@ int main(int argc, char* argv[]) {
 	}
 #endif
 #ifdef MANUAL
-	//const char* gameFile = "blargg\\pputiming\\06-suppression.nes";
-	const char* gameFile = "castlevania2.nes";
+	//const char* gameFile = "blargg\\frame\\7.nmi_timing.nes";
+	const char* gameFile = "tetris.nes";
 	const char* gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
 	char* gamePath=(char*)malloc(100 *sizeof(char));
 	gamePath = strcpy(gamePath, gameDir);

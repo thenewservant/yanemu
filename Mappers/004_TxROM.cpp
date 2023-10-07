@@ -1,5 +1,5 @@
 #include "004_TxROM.h"
-
+#include "../simpleCPU.h"
 void M_004_TxROM::wrBankRegisters(bool oddWrite, u8 what) {
 	static u8 nextBank = 0;
 	if (!oddWrite) {//Even write --> bankSelect register

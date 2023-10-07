@@ -1,6 +1,5 @@
-
 #pragma once
-#include "simpleCPU.h"
+
 #include "ScreenTools.h"
 #include <stdio.h>
 
@@ -38,6 +37,18 @@ static const u16 noiseTimerLUT[][16] = { { 4, 8, 14, 30, 60, 88, 118, 148, 188, 
 
 static const u16 dmcTimerLUT[][16] = { {398, 354, 316, 298, 276, 236, 210, 198, 176, 148, 132, 118,  98,  78,  66,  50},
 									   {428, 380, 340, 320, 286, 254, 226, 214, 190, 160, 142, 128, 106,  84,  72,  54} };//0 = PAL, 1 = NTSC
+
+enum ApuFrameSteps {
+	COMMON_3728_5 = 7457,
+	COMMON_7456_5 = 14913,
+	COMMON_11185_5 = 22371,
+	MODE_4_STEPS_14914 = 29828,
+	MODE_4_STEPS_14914_5 = 29829,
+	MODE_4_STEPS_14915 = 29830,
+	MODE_5_STEPS_14914_5 = 29829,
+	MODE_5_STEPS_18640_5 = 37281,
+	MODE_5_STEPS_18641 = 37282
+};
 
 void apuTick();
 void updateAPU(u16 where);

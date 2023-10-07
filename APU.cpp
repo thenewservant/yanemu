@@ -1,6 +1,5 @@
-#include "firstAPU.h"
+#include "APU.h"
 #include "sound.h"
-
 u8 dutyCycle1, dutyCycle2;
 u16 timer[4]; // timers for pulse 1 & 2, and triangle
 u16 p1timer, p2timer, tritimer, noisetimer;
@@ -8,14 +7,13 @@ u16 p1timer, p2timer, tritimer, noisetimer;
 u8 lengthCounter[4] // length counters for pulse 1 & 2, triangle, and noise
 , volume[3]
 , envelope[3] //envelope of pulse1, pulse2 and noise
-, startFlag[3]
-, p1Halt, p2Halt, triHalt, noiseHalt;
+, startFlag[3];
 
-u8 triCountReload, triLinCurrent;
+u8 p1Halt, p2Halt, triHalt, noiseHalt
+, triCountReload, triLinCurrent;
 
 u16 noiseBarrel = 1; //15 bits, init with 1's
 u8 noiseMode; // >0: bit 6 xor'ed with bit 0; 0: bit 1 xor'ed with bit 0
-
 u8 status = 0; // status register at 0x4015
 
 //position in the duty cycle
@@ -24,7 +22,7 @@ u8 p1Stat = 0, p2Stat = 0;
 bool sweepNegate[2];
 bool sweepReload[2];
 bool sweepEnabled[2];
-	
+
 u8 sweepShift[2];
 u8 sweepPeriod[2];
 u8 dividerCounter[2];
@@ -34,10 +32,10 @@ bool p2VolumeSelectFlag = false;
 bool noiseVolumeSelectFlag = false;
 
 float pulse1() {
-	if (timer[0] < 8) {
+	if ((timer[0] < 8) || !lengthCounter[0]) {
 		return 0;
 	}
-	else if (lengthCounter[0] && (status & 0b00000001)) {
+	else {
 		if (p1timer) {
 			p1timer -= 1;
 		}
@@ -47,14 +45,14 @@ float pulse1() {
 			p1Stat %= 8;
 		}
 	}
-	return dutyLut[dutyCycle1][p1Stat] * (p1VolumeSelectFlag?volume[0]: envelope[0]);
+	return dutyLut[dutyCycle1][p1Stat] * (p1VolumeSelectFlag ? volume[0] : envelope[0]);
 }
 
 u8 pulse2() {
-	if (timer[1] < 8) {
+	if ((timer[1] < 8) || !lengthCounter[1]) {
 		return 0;
 	}
-	else if (lengthCounter[1] && (status & 0b00000010)) {
+	else {
 		if (p2timer) {
 			p2timer -= 1;
 		}
@@ -64,7 +62,7 @@ u8 pulse2() {
 			p2Stat %= 8;
 		}
 	}
-	return dutyLut[dutyCycle2][p2Stat] * (p1VolumeSelectFlag ? volume[1] : envelope[1]);
+	return dutyLut[dutyCycle2][p2Stat] * (p2VolumeSelectFlag ? volume[1] : envelope[1]);
 }
 
 u8 triStat = 0;
@@ -72,24 +70,24 @@ bool linCntReloadFlag = false;
 
 float triangle() {
 	static u16 lastVal = 0;
-	if (lengthCounter[2] && (status & 0b00000100) && triLinCurrent && (timer[2] > 1)) {
+	if ((lengthCounter[2] && triLinCurrent) && (timer[2] > 1)) {
 		if (tritimer) {
 			tritimer -= 1;
 		}
 		else {
 			tritimer = timer[2];
 			triStat += 1;
-			triStat %= 32;	
+			triStat %= 32;
 		}
-		lastVal =  triangleLUT[triStat];
+		lastVal = triangleLUT[triStat];
 		return lastVal;
 	}
-	return 0;
+	return (lengthCounter[2] || triLinCurrent) ? lastVal : 0;
 }
 
 float noise() {
 	static bool feedback;
-	if (lengthCounter[3] && (status & 0b00001000)) {
+	if (lengthCounter[3]) {
 		if (noisetimer) {
 			noisetimer--;
 		}
@@ -139,6 +137,7 @@ u8 dmc() {
 		else if (remainingBytes == 0) {
 			sampleBuffer = 0;
 		}
+
 		if (bitsRemaining == 0) {
 			bitsRemaining = 8;
 			silenceFlag = false;
@@ -155,15 +154,8 @@ u8 dmc() {
 		}
 
 		// OUTPUT unit
-
 		//new cycle:
-
-		if (!remainingBytes) {
-			silenceFlag = true;
-		}
-		else {
-			silenceFlag = false;
-		}
+		silenceFlag = !remainingBytes;
 
 		if (dmcTimer) {
 			dmcTimer--;
@@ -186,8 +178,7 @@ u8 dmc() {
 			}
 		}
 	}
-
-	return dmcOutputLevel ;
+	return dmcOutputLevel;
 }
 
 void tickLengthCounters() {
@@ -195,6 +186,7 @@ void tickLengthCounters() {
 		lengthCounter[0] -= 1;
 	}
 	else if (!lengthCounter[0]) {
+		status &= ~0b00000001;
 		ram[0x4015] &= ~0b00000001;
 	}
 
@@ -202,6 +194,7 @@ void tickLengthCounters() {
 		lengthCounter[1] -= 1;
 	}
 	else if (!lengthCounter[1]) {
+		status &= ~0b00000010;
 		ram[0x4015] &= ~0b00000010;
 	}
 
@@ -209,6 +202,7 @@ void tickLengthCounters() {
 		lengthCounter[2] -= 1;
 	}
 	else if (!lengthCounter[2]) {
+		status &= ~0b00000100;
 		ram[0x4015] &= ~0b00000100;
 	}
 
@@ -216,6 +210,7 @@ void tickLengthCounters() {
 		lengthCounter[3] -= 1;
 	}
 	else if (!lengthCounter[3]) {
+		status &= ~0b00001000;
 		ram[0x4015] &= ~0b00001000;
 	}
 }
@@ -236,17 +231,21 @@ void targetPeriod(u8 pulseIdx) {
 	int16_t ca = (timer[pulseIdx] >> sweepShift[pulseIdx]);
 	switch (sweepNegate[pulseIdx]) {
 	case 0: //addition
-		timer[pulseIdx] =(u16)( timer[pulseIdx] + ca);
+		timer[pulseIdx] = (u16)(timer[pulseIdx] + ca);
 		break;
 	case 1:
 		int16_t tmp = (timer[pulseIdx] - ca - (pulseIdx ? 0 : 1));//pulse1 uses one's complement
-		timer[pulseIdx] = (u16)(tmp>=0?tmp:0) ; 
+		timer[pulseIdx] = (u16)(tmp >= 0 ? tmp : 0);
 		break;
+	}
+	if (timer[pulseIdx] < 8) {
+		ram[0x4015] &= ~(1 << pulseIdx);
+		status &= ~(1 << pulseIdx);
 	}
 }
 
 void tickSweeps() {
-	if (!dividerCounter[0] && sweepEnabled[0] && timer[0] >8) {
+	if (!dividerCounter[0] && sweepEnabled[0] && timer[0] > 8) {
 		targetPeriod(0);
 	}
 	if (!dividerCounter[0] || sweepReload[0]) {
@@ -269,9 +268,9 @@ void tickSweeps() {
 	}
 }
 
-float ticks = 0;
+u16 ticks = 0;
 bool firstAPUCycleHalf() {
-	return (ticks == (int(ticks))); // TODO: check if this is correct
+	return (!(ticks & 1)); // TODO: check if this is correct
 }
 
 void setFrameIntFlagIfIntInhibitIsClear() {
@@ -285,7 +284,7 @@ bool p1EnvStartFlag = false;
 bool p2EnvStartFlag = false;
 bool noiseEnvStartFlag = false;
 
-inline void tickP1Envelope() {
+void tickP1Envelope() {
 	static u8 p1EnvDecay = 0;
 	static u8 p1EnvDivider = 0;
 	if (!p1EnvStartFlag) {
@@ -308,7 +307,7 @@ inline void tickP1Envelope() {
 	}
 }
 
-inline void tickP2Envelope() {
+void tickP2Envelope() {
 	static u8 p2EnvDecay = 0;
 	static u8 p2EnvDivider = 0;
 	if (!p2EnvStartFlag) {
@@ -331,7 +330,7 @@ inline void tickP2Envelope() {
 	}
 }
 
-inline void tickNoiseEnvelope() {
+void tickNoiseEnvelope() {
 	static u8 noiseEnvDecay = 0;
 	static u8 noiseEnvDivider = 0;
 	if (!noiseEnvStartFlag) {
@@ -361,74 +360,71 @@ void tickEnvelopes() {
 }
 
 void apuTick() {
-	ticks += 0.5;
+	ticks++;
 	float tri = triangle();
 	float delta = dmc();
-	if ((ticks - (int)ticks) < 0.01) {
+	if (!(ticks & 1)) {
 		float p1 = pulse1();
 		float p2 = pulse2();
 		float ns = noise();
-
-		if (((int)(2 * ticks) % 40) == 0) {
+		if (!(ticks % 40)) {
 			float pOut = 95.88 / ((8128.0 / (p1 + p2)) + 100);
-			float tnd = 159.79 / ((1 / ((tri / 8227) + (ns /12241) + (delta/22638))) + 100);
+			float tnd = 159.79 / ((1 / ((tri / 8227) + (ns / 12241) + (delta / 22638))) + 100);
 			float sample = (pOut + tnd);
 			SDL_QueueAudio(dev, &sample, sizeof(float));
 		}
 	}
-
-	if (ticks == 3728.5) {
+	if (ticks == COMMON_3728_5) {
 		tickEnvelopes();
 		ticktriangleLinCount();
 	}
-	else if (ticks == 7456.5) {
+	else if (ticks == COMMON_7456_5) {
 		tickEnvelopes();
 		ticktriangleLinCount();
 		tickLengthCounters();
 		tickSweeps();
 	}
-	else if (ticks == 11185.5) {
+	else if (ticks == COMMON_11185_5) {
 		tickEnvelopes();
 		ticktriangleLinCount();
 	}
-
-	if (APU_MODE_4_STEPS) {
-
-		 if (ticks == 14914) {
-			setFrameIntFlagIfIntInhibitIsClear();
+	else {
+		if (APU_MODE_4_STEPS) {
+			if (ticks == MODE_4_STEPS_14914) {
+				setFrameIntFlagIfIntInhibitIsClear();
+			}
+			else if (ticks == MODE_4_STEPS_14914_5) {
+				tickEnvelopes();
+				ticktriangleLinCount();
+				tickLengthCounters();
+				tickSweeps();
+			}
+			else if (ticks >= MODE_4_STEPS_14915) {
+				ticks = 0;
+				setFrameIntFlagIfIntInhibitIsClear();
+			}
 		}
-		else if (ticks == 14914.5) {
-			tickEnvelopes();
-			ticktriangleLinCount();
-			tickLengthCounters();
-			tickSweeps();
-		}
-		else if (ticks == 14915) {
-			ticks = 0;
-			setFrameIntFlagIfIntInhibitIsClear();
-		}
-		
-	}else{
-		 if (ticks == 14914.5) {
-			setFrameIntFlagIfIntInhibitIsClear();
-		}
-		else if (ticks == 18640.5) {
-			tickEnvelopes();
-			ticktriangleLinCount();
-			tickLengthCounters();
-			tickSweeps();
-		}
-		else if (ticks == 18641) {
-			ticks = 0;
-			setFrameIntFlagIfIntInhibitIsClear();
+		else { // 5 steps
+			if (ticks == MODE_5_STEPS_14914_5) {
+				setFrameIntFlagIfIntInhibitIsClear();
+			}
+			else if (ticks == MODE_5_STEPS_18640_5) {
+				tickEnvelopes();
+				ticktriangleLinCount();
+				tickLengthCounters();
+				tickSweeps();
+			}
+			else if (ticks >= MODE_5_STEPS_18641) {
+				ticks = 0;
+				setFrameIntFlagIfIntInhibitIsClear();
+			}
 		}
 	}
 }
 
-
 void updateAPU(u16 where) {
 	switch (where) {
-	//P1
+		//P1
 	case 0x4000:
 		p1Halt = ram[0x4000] & 0x20;
 		dutyCycle1 = (ram[0x4000] & DUTY_CYCLE) >> 6;
@@ -451,7 +447,7 @@ void updateAPU(u16 where) {
 		p1EnvStartFlag = true;
 		break;
 
-	//P2
+		//P2
 	case 0x4004:
 		p2Halt = ram[0x4004] & 0x20;
 		dutyCycle2 = (ram[0x4004] & DUTY_CYCLE) >> 6;
@@ -474,13 +470,13 @@ void updateAPU(u16 where) {
 		p2EnvStartFlag = true;
 		break;
 
-	//TRIANGLE
+		//TRIANGLE
 	case 0x4008:
 		triHalt = ram[0x4008] & 0x80;
 		triCountReload = ram[0x4008] & 0x7F;
 		break;
 	case 0x400A:
-		timer[2] = (ram[0x400A] | ((ram[0x400B] & TIMER_HIGH) << 8)) ; //triangle
+		timer[2] = (ram[0x400A] | ((ram[0x400B] & TIMER_HIGH) << 8)); //triangle
 		tritimer = timer[2];
 		break;
 	case 0x400B:
@@ -490,7 +486,7 @@ void updateAPU(u16 where) {
 		linCntReloadFlag = true;
 		break;
 
-	//NOISE
+		//NOISE
 	case 0x400C:
 		noiseHalt = ram[0x400C] & 0x20;
 		volume[2] = ram[0x400C] & 0x0F;
@@ -506,13 +502,13 @@ void updateAPU(u16 where) {
 		noiseEnvStartFlag = true;
 		break;
 
-	//DMC
+		//DMC
 	case 0x4010:
 		dmcLoop = ram[0x4010] & 0x40;
 		dmcIrqFlag = ram[0x4010] & 0x80;
 		dmcRateIndex = ram[0x4010] & 0x0F;
-		break; 
-	//DMC DIRECT OUTPUT LEVEL
+		break;
+		//DMC DIRECT OUTPUT LEVEL
 	case 0x4011:
 		dmcOutputLevel = ram[0x4011] & 0x7F;
 		break;
@@ -523,22 +519,27 @@ void updateAPU(u16 where) {
 		dmcSampleLength = 0xFFF & ((ram[0x4013] << 4) + 1);
 		remainingBytes = dmcSampleLength;
 		break;
-	//GENERAL
-	case 0x4015: 
+		//GENERAL
+	case 0x4015:
 
 		status = ram[0x4015];
 
+		p1Halt = !(status & 0b00000001);
+		p2Halt = !(status & 0b00000010);
+		triHalt = !(status & 0b00000100);
+		noiseHalt = !(status & 0b00001000);
+
 		if (!(status & 0b00000001)) {
-			p1Halt = true;
+			lengthCounter[0] = 0;
 		}
 		if (!(status & 0b00000010)) {
-			p2Halt = true;
+			lengthCounter[1] = 0;
 		}
 		if (!(status & 0b00000100)) {
-			triHalt = true;
+			lengthCounter[2] = 0;
 		}
 		if (!(status & 0b00001000)) {
-			noiseHalt = true;
+			lengthCounter[3] = 0;
 		}
 		break;
 	default: break;

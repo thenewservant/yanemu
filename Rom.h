@@ -10,7 +10,7 @@
 #include "Mappers/003_CNROM.h"
 #include "Mappers/004_TxROM.h"
 #include "Mappers/007_AxROM.h"
-
+#include "Mappers/011_COLOR_DREAMS.h"
 class Rom {// basic for just NROM support
 private:
 	u8 header[16];
@@ -20,10 +20,13 @@ private:
 	u8* prgRom;
 	u8* chrRom;
 	Mapper* mapper;
+	char* filePath;
+	char* fileName;
 public:
 	Rom(FILE* romFile);
 	void printInfo();
 	Mapper* getMapper();
-	Rom();
+	bool hasBattery();
+	Rom() {}
 };
 #endif
