@@ -6,7 +6,7 @@ Yet Another Nes EMUlator..
 This is a NES emulator written in C++, with a pixel-based rendering strategy, coming with support for different [MMCs and Mappers](#mmcs-and-cartridge-support).
 <br>Made with SDL2 and wxWidgets.
 
-## How does it look like?
+## How does it look ?
 Here is a demo of the emulator running some games.
 | Kirby's Adventure          | Prince Of Persia   |
 | ----------------------     | ---------------------- |
