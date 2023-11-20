@@ -34,7 +34,8 @@ public:
 	void setMirroring(u8 mir);
 	virtual void acknowledgeNewScanline(bool risingEdge) { (void)risingEdge; };
 	virtual u8* getPrgRam() { return (u8*)0; };
-	virtual void setPrgRam(u8* ram) { (void)ram; };
+	virtual void setPrgRam(u8* ramPtr) { (void)ramPtr; };
+	virtual void setSpriteMode(u8 mode) { (void)mode; };
 	Mapper() :
 		chrRomSize{ 0 }, prgRomSize{ 0 }, prg{ nullptr },
 		prgBanks{ nullptr }, chrBanks{ nullptr }, mirror{ 0 }, nameTables{ 0 }, chr{ 0 } {};

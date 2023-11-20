@@ -3,19 +3,17 @@
 u32 *pixels = (u32*)calloc(SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(u32));
 
 void Screen::initSDLScreen() {
-	char tt[100];
-	strcpy(tt, "Yanemu: ");
-	strcat(tt, title);
 	screenW = SCREEN_WIDTH * ScreenScaleFactor;
 	screenH = SCREEN_HEIGHT * ScreenScaleFactor;
-	window = SDL_CreateWindow(tt, SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, screenW, screenH, SDL_WINDOW_SHOWN | SDL_WINDOW_RESIZABLE);
+	window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, screenW, screenH, SDL_WINDOW_SHOWN | 0 * SDL_WINDOW_RESIZABLE);
 	
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
 	
 	// Create SDL texture
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
-	
+	//int pitch = SCREEN_WIDTH * SCREEN_HEIGHT * 4;
+	//SDL_LockTexture(texture, NULL, (void**)&pixels, &pitch);
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		exit(1);
@@ -36,34 +34,17 @@ Screen::Screen(u8 scaleFact) {
 	initSDLScreen();
 }
 
-Screen::Screen(u8 scaleFact, const char* title) {
-	status = 0;
-	ScreenScaleFactor = scaleFact;
-	this->title = title;
-	initSDLScreen();
-}
-
 u32* Screen::getPixels() {
 	return pixels;
 }
 
 void Screen::updateScreen() {
-	static bool fullScreenState = false;
-	if (needFullScreenToggle) {
-		printf("Toggle fullscreen\n");
-		needFullScreenToggle = false;
-		SDL_DestroyRenderer(renderer);
-		SDL_DestroyTexture(texture);
-		fullScreenState = !fullScreenState;
-		SDL_SetWindowFullscreen(window, fullScreenState && SDL_WINDOW_FULLSCREEN_DESKTOP);
-
-		renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-		texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
-
-	}
+	//SDL_UnlockTexture(texture);
 	SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
+	//int pitch = SCREEN_WIDTH * SCREEN_HEIGHT * 4;
+	//SDL_LockTexture(texture, NULL, (void**)&pixels, &pitch);
 }
 
 
@@ -168,12 +149,7 @@ u8 Screen::listener() {
 		case SDL_WINDOWEVENT:
 			switch (keyEvent.window.event) {
 			case SDL_WINDOWEVENT_CLOSE:
-				if (romHasBattery() && getMapper()->getPrgRam()) {
-
-					printf("\nSaving Work Ram...\n");
-					FILE* chrRamFile = fopen("batterySave.bin", "wb");
-					fwrite(getMapper()->getPrgRam(), 0x2000, 1, chrRamFile);
-				}
+				rom->saveWorkRam();
 				printf("Window closed\n");
 				exit(0);
 			case SDL_WINDOWEVENT_RESIZED:
@@ -200,15 +176,6 @@ void Screen::writePixel(u32 where, u32 what) {
 	pixels[where] = what;
 }
 
-Screen::Screen() {
-
-}
-
 char* Screen::getFilePath() {
 	return newFilePath;
-}
-
-
-void Screen::resizeWindow() {
-
 }

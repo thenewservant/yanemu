@@ -82,6 +82,12 @@ struct PpuControlRegs_t {
 
 class PPU {
 private:
+	u8 spriteContainer[4][4 * SECONDARY_OAM_CAP + 8] = { 0 }; /* contains sprite pattern data for a single scanline.
+											1st row - raw sprite priority (for this pixel),
+											2nd row - calculated pixel output according to secondary OAM index,
+											3rd row - palette index for the current pixel.
+											4th row - 1 if pixel belongs to sprite 0, 0 otherwise.
+											+8 for eventual overflows*/
 	struct PpuScrollRegs_t scrollRegs;
 	struct PpuControlRegs_t ctrlRegs;
 	bool isVBlank;
@@ -90,17 +96,16 @@ private:
 	u16 cycle, scanLine;
 	u8 frame;
 	u32* pixels;
-	Screen scr;
+	Screen* scr;
 	Rom rom;
 	u8 oamADDR;
 	u8 OAM[256];
 	u8 secondaryOAM[SECONDARY_OAM_CAP];
 	u8 internalPPUreg;// internal 0x2007 read buffer
-	u8 ppuRam[0x4000];
+	u8 paletteMem[0x20];
 	Mapper* mapper;
 	bool oddFrame = false;
 	bool OverrideFrameOddEven = false;
-	bool suppressVFlagSetting = false;
 	bool nmiPending = false;
 private:
 	//renders the next scanline of sprites, in the REVERSE order of how they are stored in OAM2.
@@ -108,7 +113,9 @@ private:
 	// @param sp0present - Is sprite 0 present in OAM2 ?
 	void spriteProcessor(u8 spritesQty, bool sp0present);
 	void spriteEvaluator();
-	void BGRenderer();
+	void rendererComputeSpritePixel(const u8& spriteOpaque, u32& finalPIX);
+	void rendererComputeBGPixel(u8  attributeSR[2], const u16& shift, const u8& bgOpaque, u32& finalPIX);
+	void pixelRenderer();
 	void sequencer();
 	void incPPUADDR();
 	u16 paletteMap(u16 where);
@@ -117,7 +124,7 @@ private:
 	void incFineY();
 	void incCoarseX();
 public:
-	PPU(u32* px, Screen sc, Rom rom);
+	PPU(u32* px, Screen* sc, Rom rom);
 	void tick();
 	void updateOam();
 	void writeOAM(u8 what);
@@ -138,6 +145,6 @@ public:
 	u8 rdPPU();
 };
 
-int mainSYS(Screen scr, FILE* testFile);
+int mainSYS(Screen* scr, const char* filePath);
 
 #endif

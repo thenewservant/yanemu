@@ -1,8 +1,10 @@
 #pragma warning(disable:4996)
 #include "Rom.h"
 
-Rom::Rom(FILE* romFile) :filePath{ nullptr }, fileName{ nullptr } {
-	
+Rom::Rom(const char* filePath) :romPath{ nullptr }, romName{ nullptr } {
+	FILE* romFile = fopen(filePath, "rb");
+	romPath = filePath;
+	romName = getFileNameFromPath(filePath);
 	if (romFile == NULL) {
 		printf("Error: ROM file not found");
 		exit(1);
@@ -52,17 +54,20 @@ Rom::Rom(FILE* romFile) :filePath{ nullptr }, fileName{ nullptr } {
 	mapper->setPrgRom(prgRom, prgRomSize);
 	mapper->setChrRom(chrRom, chrRomSize);
 	mapper->setMirroring(mirror);
-	if (header[6] & 2) {
-		FILE* batteryFile = fopen("batterySave.bin", "rb");
-		if (batteryFile != NULL) {
-			printf("Found battery file, loading... \n");
-			fread(mapper->getPrgRam(), 0x2000, 1, batteryFile);
-			fclose(batteryFile);
-		}
+
+	checkForSaveFolder();
+	loadWorkRam();
+}
+
+void Rom::checkForSaveFolder() { //check if the folder for battery saves exists, if not, create it
+	char* buf = (char*)malloc(104 * sizeof(char));
+	if (MKDIR(saveFolder) == 0) {
+		printf("Info: Battery save folder successfully created\n");
 	}
 }
 
 void Rom::printInfo() {
+	printf("ROM Name: %s\n", romName);
 	printf("Mapper type: %d \n", mapperType);
 	printf("Mirroring type: %s\n", header[6]&1 ? "Vertical" : "Horizontal");
 	printf("CHR ROM size: %d (%d KB)\n", chrRomSize, chrRomSize * 8);
@@ -78,4 +83,66 @@ Mapper* Rom::getMapper() {
 
 bool Rom::hasBattery() {
 	return header[6] & 2;
+}
+
+const char* Rom::getFileNameFromPath(const char* path) {
+	const char* fileName = path;
+	const char* slash = strrchr(path, '/');
+	const char* backslash = strrchr(path, '\\');
+
+	if (slash || backslash) {
+		// Use the last slash or backslash found, whichever comes last.
+		const char* separator = (slash > backslash) ? slash : backslash;
+		fileName = separator + 1;
+	}
+
+	char* fn2 = (char*)malloc(100 * sizeof(char));
+	fn2 = strcpy(fn2, fileName);
+	char* dot = strrchr(fn2, '.');
+	if (dot) {
+		*dot = '\0';
+	}
+
+	return fn2;
+}
+
+const char* Rom::getfileName() {
+		return romName;
+}
+
+void Rom::loadWorkRam() {
+	if (header[6] & 2) {
+		char* buf = (char*)malloc(104 * sizeof(char));
+		if (buf) {
+			sprintf(buf, "%s/%s.7bs", saveFolder, romName);
+			FILE* batteryFile = fopen(buf, "rb");
+			if (batteryFile != NULL) {
+				printf("Found battery file, loading... \n");
+				fread(mapper->getPrgRam(), 0x2000, 1, batteryFile);
+				fclose(batteryFile);
+			}
+		}
+	}
+}
+
+void Rom::saveWorkRam() {
+	if (this->hasBattery() && mapper->getPrgRam()) {
+		printf("\nSaving Work Ram...\n");
+		char* buf = (char*)malloc(104 * sizeof(char));
+		if (buf) {
+			sprintf(buf, "%s/%s.7bs", saveFolder, romName);
+			FILE* chrRamFile = fopen(buf, "wb");
+			free(buf);
+			if (!chrRamFile) {
+				printf("Error: can't open battery file\n");
+				exit(1);
+			}
+			fwrite(mapper->getPrgRam(), 0x2000, 1, chrRamFile);
+			fclose(chrRamFile);
+		}
+		else {
+			printf("Error: can't allocate memory for battery file name\n");
+			exit(1);
+		}
+	}
 }

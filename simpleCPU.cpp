@@ -11,8 +11,8 @@
 	M / C / _ / I / Z / A / N / R : iMplied, aCcumulator, Single-byte, Immediate, Zeropage, Absolute, iNdirect, Relative
 */
 // 6502 registers
-static u8 ac, xr, yr, sr = SR_RST, sp = 0xFD;
-static u16 pc;
+u8 ac, xr, yr, sr = SR_RST, sp = 0xFD;
+u16 pc;
 
 u8 ram[0x10000] = { 0 };
 u32 cycles = 0;
@@ -24,7 +24,6 @@ u8 keys2 = 0;
 u8 keyLatchCtrl1 = 0; // controller 1 buttons
 u8 keyLatchCtrl2 = 0; // controller 2 buttons
 
-
 Mapper* mapper;
 PPU* ppu;
 
@@ -33,8 +32,12 @@ u32 comCount[256] = { 0 }; // count how many times each command is executed
 u32 getCycles() {
 	return cycles;
 }
+u64 nbcyc = 0;
+u64 getTotalCycles() {
+	return nbcyc;
+}
 
-inline bool elemIn(u8 elem, u8* arr, u8 size) {
+bool elemIn(u8 elem, u8* arr, u8 size) {
 	for (u8 i = 0; i < size; i++) {
 		if (arr[i] == elem) {
 			return true;
@@ -63,6 +66,7 @@ void specialCom() {
 	}
 	printf("PC: %4X\n", pc);
 	printf("The I Flag is %s\n", (sr & 0b00000100) >> 2 ? "SET" : "CLEAR");
+	printf("Remaining audio samples: %d", (SDL_GetQueuedAudioSize(dev) / sizeof(float)));
 }
 
 void pressKey(u16 pressed) {
@@ -90,15 +94,14 @@ u8 rdRegisters(u16 where) {
 
 //rd is READ. Used to filter certain accesses (such as PPUADDR latch)
 u8 rd(u16 at) {
-	if (at <= 0x1FFF) {
-		//printf("rd %4X\n", at);
+	if (at >= 0x6000) {
+		return mapper->rdCPU(at);
+	}
+	else if (at <= 0x1FFF) {
 		return ram[at & 0x7FF];
 	}
 	else if (at >= 0x2000 && at <= 0x3FFF) {
 		return rdRegisters(at & 0x2007);
-	}
-	else if (at >= 0x6000) {
-		return mapper->rdCPU(at);
 	}
 	switch (at) {
 	case 0x4016:
@@ -119,7 +122,7 @@ u8 rd(u16 at) {
 	}
 }
 
-inline void writeRegisters(u16 where, u8 what) {
+void writeRegisters(u16 where, u8 what) {
 	switch (where) {
 	case 0x2000:
 		ppu->writePPUCTRL(what);
@@ -147,7 +150,7 @@ inline void writeRegisters(u16 where, u8 what) {
 	}
 }
 
-inline void wr(u16 where, u8 what) {
+void wr(u16 where, u8 what) {
 	if (where <= 0x1FFF) {
 		ram[where & 0x07FF] = what;
 	}
@@ -183,13 +186,20 @@ inline void wr(u16 where, u8 what) {
 		}
 	}
 }
+void _push(u8 what) {
+	ram[STACK_END | sp--] = what;
+}
 
-inline u16 absAddr(){
+u8 _pop() {
+	return rd(STACK_END | ++sp);
+}
+
+u16 absAddr() {
 	return (rd(pc + 1) << 8) | rd(pc);
 }
 
 //absolute memory access with arg (xr or yr) offset
-inline u16 absArg(u8 arg, u8 cyc = 1) {
+u16 absArg(u8 arg, u8 cyc = 1) {
 	u16 where = (rd(pc + 1) << 8) | rd(pc);
 	u16 w2 = where + arg;
 	if ((where & 0xFF00) != (w2 & 0xFF00)) {
@@ -198,15 +208,15 @@ inline u16 absArg(u8 arg, u8 cyc = 1) {
 	return w2;
 }
 
-inline u8 zpgX() {
+u8 zpgX() {
 	return rd(pc) + xr;
 }
 
-inline u16 indX() {
+u16 indX() {
 	return ram[zpgX()] | (ram[(u8)(zpgX() + 1)] << 8);
 }
 
-inline u16 indY(u8 cyc = 1) {
+u16 indY(u8 cyc = 1) {
 	u16 where = ram[rd(pc)] | (ram[(u8)(rd(pc) + 1)] << 8);
 	u16 w2 = where + yr;
 	if ((where & 0xFF00) != (w2 & 0xFF00)) {
@@ -215,40 +225,42 @@ inline u16 indY(u8 cyc = 1) {
 	return w2;
 }
 
-inline void check_NZ(u8 obj) {
+void check_NZ(u8 obj) {
 	sr &= NEG_NZ_FLAGS;
 	sr |= (obj & N_FLAG) | ((obj == 0) << 1);
 }
 
-inline void check_CV(u8 what, u16 aluTmp) {
+void check_CV(u8 what, u16 aluTmp) {
 	sr &= NEG_CV_FLAGS;
 	sr |= aluTmp & 0xFF00 ? C_FLAG : 0; // C applied if aluTmp > 0xff
 	sr |= V_FLAG & (((ac ^ aluTmp) & (what ^ aluTmp)) >> 1);
 }
 
 void _nmi() {
-	wr(STACK_END | sp--, pc >> 8);
-	wr(STACK_END | sp--, (u8)pc);
-	wr(STACK_END | sp--, sr);
+	_push(pc >> 8);
+	_push((u8)pc);
+	_push(sr);
 	sr |= I_FLAG;
 	pc = ((rd(0xFFFB) << 8) | rd(0xFFFA));
+	cycles += 7;
 }
 
-
 void _00brk_() {
-	wr(STACK_END | sp--, (u8)((pc + 1) >> 8));
-	wr(STACK_END | sp--, (u8)(pc + 1));
-	wr(STACK_END | sp--, sr | B_FLAG);
+	_push((u8)((pc + 1) >> 8));
+	_push((u8)(pc + 1));
+	_push(sr | B_FLAG);
 	sr |= I_FLAG;
 	pc = rd(0xFFFE) | (rd(0xFFFF) << 8);
+	cycles += 7;
 }
 
 void irq() {
-	wr(STACK_END | sp--, (u8)(pc >> 8));
-	wr(STACK_END | sp--, (u8)pc);
-	wr(STACK_END | sp--, sr | B_FLAG);
+	_push((u8)(pc >> 8));
+	_push((u8)pc);
+	_push(sr | B_FLAG);
 	sr |= I_FLAG;
 	pc = rd(0xFFFE) | (rd(0xFFFF) << 8);
+	cycles += 7;
 }
 
 void manualIRQ() {
@@ -258,11 +270,12 @@ void manualIRQ() {
 void _rst() {
 	sp -= 3;
 	sr |= I_FLAG;
-	pc = (rd(0xFFFD) << 8) | rd(0xFFFC);
+	pc = rd(0xFFFD) << 8 | rd(0xFFFC);
 	ram[0x4015] = 0;
+	//updateAPU(0x4015);
 }
 
-inline void _adc(u8 what) {
+void _adc(u8 what) {
 	u16 aluTmp = ac + what + (sr & C_FLAG);
 	check_CV(what, aluTmp);
 	ac = (u8)aluTmp;
@@ -277,7 +290,7 @@ void _79adcA() { _adc(rd(absArg(yr))); pc += 2; }
 void _61adcN() { _adc(rd(indX())); pc++; }
 void _71adcN() { _adc(rd(indY())); pc++; }
 
-inline void _and(u8 what) {
+void _and(u8 what) {
 	ac &= what;
 	check_NZ(ac);
 }
@@ -289,33 +302,6 @@ void _3DandA() { _and(rd(absArg(xr))); pc += 2; }
 void _39andA() { _and(rd(absArg(yr))); pc += 2; }
 void _21andN() { _and(rd(indX())); pc++; }
 void _31andN() { _and(rd(indY())); pc++; }
-
-int8_t _rel() {
-	u8 rdTmp = rd(pc);
-	int8_t relTmp = (rdTmp & N_FLAG) ? -((~rdTmp) + 1) : rdTmp;
-	if ((pc & 0xFF00) != ((((u16)(pc + relTmp +1)) & 0xFF00))) {
-		cycles += 1;
-		//printf("%4X, %4X\n", (pc ), (((u16)(pc + relTmp)) ));
-	}
-	cycles += 1;
-	return relTmp;
-}
-
-void _90bccR() {
-	pc += ((sr & C_FLAG) == 0) ? _rel() : 0;
-	pc++;
-}
-
-void _B0bcsR() {
-	pc += ((sr & C_FLAG)) ? _rel() : 0;
-	pc++;
-}
-
-void _F0beqR() {
-	pc += ((sr & Z_FLAG)) ? _rel() : 0;
-	pc++;
-
-}
 
 void _24bitZ() {
 	u8 termB = ram[rd(pc)];
@@ -331,37 +317,33 @@ void _2CbitA() {
 	pc += 2;
 }
 
-void _30bmiR() {
-	pc += (sr & N_FLAG) ? _rel() : 0;
+void _branch(bool cond) {
+	if (cond) {
+		int8_t relTmp = rd(pc);
+		if (((pc + 1) & 0xFF00) != ((pc + relTmp + 1) & 0xFF00)) {
+			cycles += 1;
+		}
+		cycles += 1;
+		pc += relTmp;
+	}
 	pc++;
 }
 
-void _D0bneR() {
-	pc += ((sr & Z_FLAG) == 0) ? _rel() : 0;
-	pc++;
-}
-
-void _10bplR() {
-	pc += ((sr & N_FLAG) == 0) ? _rel() : 0;
-	pc++;
-}
-
-void _50bvcR() {
-	pc += ((sr & V_FLAG) == 0) ? _rel() : 0;
-	pc++;
-}
-
-void _70bvsR() {
-	pc += (sr & V_FLAG) ? _rel() : 0;
-	pc++;
-}
+void _90bccR() { _branch((sr & C_FLAG) == 0); }
+void _B0bcsR() { _branch(sr & C_FLAG); }
+void _F0beqR() { _branch(sr & Z_FLAG); }
+void _30bmiR() { _branch(sr & N_FLAG); }
+void _D0bneR() { _branch((sr & Z_FLAG) == 0); }
+void _10bplR() { _branch((sr & N_FLAG) == 0); }
+void _50bvcR() { _branch((sr & V_FLAG) == 0); }
+void _70bvsR() { _branch(sr & V_FLAG); }
 
 void _18clcM() { sr &= ~C_FLAG; }
 void _D8cldM() { sr &= ~D_FLAG; }
 void _58cliM() { sr &= ~I_FLAG; }
 void _B8clvM() { sr &= ~V_FLAG; }
 
-inline void _cmp(u8 reg, u8 what) {
+void _cmp(u8 reg, u8 what) {
 	u8 tmpN = reg - what;
 	sr = sr & ~N_FLAG & ~Z_FLAG & ~C_FLAG |
 		((reg == what) ? Z_FLAG : 0) |
@@ -397,15 +379,17 @@ void _D6decZ() {
 
 void _CEdecA() {
 	u16 tmp = (rd(pc + 1) << 8) | rd(pc);
-	wr(tmp, rd(tmp) - 1);
-	check_NZ(rd(tmp));
+	u8 wrTmp = rd(tmp) - 1;
+	wr(tmp, wrTmp);
+	check_NZ(wrTmp);
 	pc += 2;
 }
 
 void _DEdecA() {
 	u16 tmp = absArg(xr, 0);
-	wr(tmp, rd(tmp) - 1);
-	check_NZ(rd(tmp));
+	u8 wrTmp = rd(tmp) - 1;
+	wr(tmp, wrTmp);
+	check_NZ(wrTmp);
 	pc += 2;
 }
 
@@ -436,16 +420,22 @@ void _F6incZ() {
 }
 
 void _EEincA() {
+	//printf("EE\n");
 	u16 tmp = (rd(pc + 1) << 8) | rd(pc);
-	wr(tmp, rd(tmp) + 1);
-	check_NZ(rd(tmp));
+	u8 writtenTmp = rd(tmp);
+	wr(tmp, writtenTmp);
+	wr(tmp, writtenTmp+1);
+	check_NZ(writtenTmp+1);
 	pc += 2;
 }
 
 void _FEincA() {
+	//printf("FE\n");
 	u16 tmp = absArg(xr, 0);
-	wr(tmp, rd(tmp) + 1);
-	check_NZ(rd(tmp));
+	u8 writtenTmp = rd(tmp);
+	wr(tmp, writtenTmp);
+	wr(tmp, writtenTmp+1);
+	check_NZ(writtenTmp+1);
 	pc += 2;
 }
 
@@ -460,8 +450,8 @@ void _6CjmpN() {
 
 void _20jsrA() {
 	u16 pcTmp = pc + 1;
-	wr(STACK_END | sp--, (u8)(pcTmp >> 8));
-	wr(STACK_END | sp--, (u8)pcTmp);
+	_push((u8)(pcTmp >> 8));
+	_push((u8)pcTmp);
 	pc = rd(pc) | (rd(pc + 1) << 8);
 }
 
@@ -502,7 +492,7 @@ void _lsr(u16 where) {
 	u8 tmp = rd(where);
 	sr = sr & ~N_FLAG & ~C_FLAG | tmp & C_FLAG;
 	wr(where, tmp >> 1);
-	check_NZ(tmp>>1);
+	check_NZ(tmp >> 1);
 }
 
 void _4AlsrC() {
@@ -525,27 +515,27 @@ void _09oraI() { _ora(rd(pc)); pc++; }
 void _0DoraA() { _ora(rd(absAddr())); pc += 2; }
 void _11oraN() { _ora(rd(indY())); pc++; }
 void _15oraZ() { _ora(ram[zpgX()]); pc++; }
-void _19oraA() {_ora(rd(absArg(yr)));pc += 2;}
-void _1DoraA() {_ora(rd(absArg(xr))); pc+=2;}
+void _19oraA() { _ora(rd(absArg(yr))); pc += 2; }
+void _1DoraA() { _ora(rd(absArg(xr))); pc += 2; }
 
 void _48phaM() {
-	wr(STACK_END | sp--, ac);
+	_push(ac);
 }
 
 void _08phpM() {
-	wr(STACK_END | sp--, sr | B_FLAG);
+	_push(sr | B_FLAG);
 }
 
 void _68plaM() {
-	ac = rd(STACK_END | ++sp);
+	ac = ram[STACK_END | ++sp];
 	check_NZ(ac);
 }
 
 void _28plpM() { //ignores flags (B and _)
-	sr = sr & (B_FLAG | __FLAG) | rd(STACK_END | ++sp) & ~(B_FLAG | __FLAG);
+	sr = sr & (B_FLAG | __FLAG) | ram[STACK_END | ++sp] & ~(B_FLAG | __FLAG);
 }
 
-inline void _asl(u16 where) {// one bit left shift, shifted out bit is preserved in carry
+void _asl(u16 where) {// one bit left shift, shifted out bit is preserved in carry
 	u8 data = rd(where);
 	sr = sr & ~C_FLAG | ((data & N_FLAG) ? C_FLAG : 0);
 	wr(where, data << 1);
@@ -935,50 +925,39 @@ Cpu::Cpu(u8* ram, u8* pr) {
 }
 
 void Cpu::afficher() {
-	printf("pc: %04X ac: %02x xr: %02x yr: %02x sp: %02x sr: %02x PPU: %3d SL: %3d \n", pc, ac, xr, yr, sp, sr, (3 * cycles) % 341, -1 + (((((3 * cycles)) / 341)) % 262));
+	printf("pc: %04X ac: %02x xr: %02x yr: %02x sp: %02x sr: %02x PPU: %3d SL: %3d \n",
+		pc, ac, xr, yr, sp, sr, (3 * cycles) % 341, -1 + (((((3 * cycles)) / 341)) % 262));
 	for (int i = 0; i < 8; i++) {
 		printf("%d", (sr >> (7 - i)) & 1);
 	}
 }
 
-Rom* pubRom;
-
-bool romHasBattery() {
-	return pubRom->hasBattery();
-}
-
-Mapper* getMapper() {
-	return mapper;
-}
-
-int mainSYS(Screen scr, FILE* testFile) {
-	Rom rom(testFile);
-	pubRom = &rom; 
+int mainSYS(Screen* scr, const char* filePath) {
+	Rom rom(filePath);
 	rom.printInfo();
 	mapper = rom.getMapper();
+	scr->setRom(&rom);
 	Cpu f(ram, ram);
-	PPU p(scr.getPixels(), scr, rom);
+	PPU p(scr->getPixels(), scr, rom);
+	
 	ppu = &p;
-
+	
 	soundmain();
-
-	u64 nbcyc = 0;
 	auto t0 = Time::now();
 
 	switch (VIDEO_MODE) {
 	case NTSC:
 		printf("\nVideo: NTSC");
 		while (1) {
-
-			while ((SDL_GetQueuedAudioSize(dev) / sizeof(float)) < 1 * 4470) {
+			while (1||(SDL_GetQueuedAudioSize(dev) / sizeof(float)) < 1 * 4470) {
 				for (int i = 0; i < 59561 * 1; i++) {
 					nbcyc++;
-					ppu->tick(); ppu->tick(); ppu->tick();
 
+					ppu->tick(); ppu->tick(); ppu->tick();
 					if (cycles == 0) {
 						u8 op = rd(pc++);
 						cycles += _6502InstBaseCycles[op];
-						//comCount[op]++;
+						comCount[op]++;
 						opCodePtr[op]();
 					}
 					cycles--;
@@ -1000,7 +979,7 @@ int mainSYS(Screen scr, FILE* testFile) {
 	case PAL:
 		printf("\nVideo: PAL");
 		while (1) {
-			//mainClockTickPAL(f, p);
+			
 		}
 		break;
 	default:

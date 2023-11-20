@@ -1,6 +1,8 @@
 #include "001_SxROM.h"
+#include "../simpleCPU.h"
 
 void M_001_SxROM::wrCPU(u16 where, u8 what) {
+	static u64 lastCycle = (u64) - 1;
 	static u8 shiftReg = 0;
 	static u8 shiftedBits = 0; // how many times we have written to shift register
 	static u8 mirrorMode;
@@ -16,7 +18,8 @@ void M_001_SxROM::wrCPU(u16 where, u8 what) {
 			prgBanks[0] = prg + 0x4000 * ((prgRomSize - 1) & 0xE);
 			prgBanks[1] = prgBanks[0] + 0x4000;
 		}
-		else {
+		
+		else if (lastCycle != getTotalCycles()) {
 			shiftReg = ((shiftReg >> 1) | ((what & 1) << 4)) & 0b11111;
 			shiftedBits++;
 			if (shiftedBits == 5) {
@@ -61,6 +64,7 @@ void M_001_SxROM::wrCPU(u16 where, u8 what) {
 			}
 		}
 	}
+	lastCycle = getTotalCycles();
 }
 
 void M_001_SxROM::chrUpdate() {
@@ -98,11 +102,13 @@ u8 M_001_SxROM::rdPPU(u16 where) {
 }
 
 void M_001_SxROM::wrPPU(u16 where, u8 what) {
-	if (where < 0x1000) {
-		chrBanks[0][where] = what;
-	}
-	else {
-		chrBanks[1][where - 0x1000] = what;
+	if (!chrRomSize) {
+		if (where < 0x1000) {
+			chrBanks[0][where] = what;
+		}
+		else {
+			chrBanks[1][where - 0x1000] = what;
+		}
 	}
 }
 
@@ -189,5 +195,6 @@ u8 M_001_SxROM::rdNT(u16 where) {
 }
 
 void M_001_SxROM::setMirroring(u8 mir) {
+	(void)mir;
 	mirror = SINGLE_SCREEN_1;
 }

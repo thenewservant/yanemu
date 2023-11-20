@@ -20,6 +20,7 @@ protected:
 	u8 irqReloadFlag;
 	u8 irqLatch;
 	bool irqEnabled;
+	bool is8x16SpriteMode;
 protected:
 	u8 lowerPPURegs(u16 where);
 	u8 higherPPURegs(u16 where);
@@ -41,11 +42,12 @@ public:
 	u8 rdPPU(u16 where);
 	void wrPPU(u16 where, u8 what);
 	u8* getPrgRam() { return prgRam; };
-	void setPrgRam(u8* ram) {
-		memcpy(prgRam, ram, 0x2000);
+	void setPrgRam(u8* ramPtr) {
+		memcpy(prgRam, ramPtr, 0x2000);
 	};
+	void setSpriteMode(u8 mode) { is8x16SpriteMode = (mode == 16); };
 	M_004_TxROM() :Mapper(),
 		wRamEnable(false), prgBankSwappedMode(false),
 		chrBankSwappedMode(false), prgRam{ 0 }, chrBankRegisters{ 0 },
-		prgBankRegisters{ 0 }, chr{ 0 }, secondLastBank{ 0 }, lastBank{ 0 } {};
+		prgBankRegisters{ 0 }, chr{ 0 }, secondLastBank{ 0 }, lastBank{ 0 }, is8x16SpriteMode{ false } {};
 };

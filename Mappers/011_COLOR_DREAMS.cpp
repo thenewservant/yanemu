@@ -19,8 +19,6 @@ void M_011_COLOR_DREAMS::wrCPU(u16 where, u8 what) {
 	}
 }
 
-void M_011_COLOR_DREAMS::wrPPU(u16 where, u8 what) {}
-
 u8 M_011_COLOR_DREAMS::rdCPU(u16 where) {
 	if (where & 0xC000) {
 		return currentPrgRom[where - 0x8000];

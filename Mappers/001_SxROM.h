@@ -37,8 +37,8 @@ public:
 	void wrNT(u16 where, u8 what);
 	u8 rdNT(u16 where);
 	u8* getPrgRam() { return prgRamBanks[0]; };
-	void setPrgRam(u8* ram) {
-		memcpy(prgRamBanks[0], ram, 0x2000);
+	void setPrgRam(u8* ramPtr) {
+		memcpy(prgRamBanks[0], ramPtr, 0x2000);
 	};
 	M_001_SxROM() :Mapper(), chr0{ 0 }, chr1{ 0 }, chr{ 0 }, chrSizeMode{ 0 },
 		wRamEnable{ 0 }, prgSizeMode{ 0 }, prgRamBanks{ 0 }, chrRamBanks{ 0 }

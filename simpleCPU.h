@@ -35,11 +35,14 @@
 #define VERTICAL 1
 #define HORIZONTAL 0 // mirroring type
 
-#define PAL 0
-#define NTSC 1
-#define VIDEO_MODE NTSC
-
 extern u8 ram[];
+
+enum VideoModes {
+	PAL,
+	NTSC
+};
+
+#define VIDEO_MODE NTSC
 
 static const uint8_t _6502InstBaseCycles[256] = {
   7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
@@ -77,7 +80,6 @@ void specialCom();
 void addCycle();
 void manualIRQ();
 void _rst();
-bool romHasBattery();
-Mapper* getMapper();
+u64 getTotalCycles();
 u32 getCycles();
 #endif

@@ -11,8 +11,10 @@
 #include "Mappers/004_TxROM.h"
 #include "Mappers/007_AxROM.h"
 #include "Mappers/011_COLOR_DREAMS.h"
-class Rom {// basic for just NROM support
+
+class Rom {
 private:
+	const char* saveFolder = "BatterySaves";
 	u8 header[16];
 	u8 mapperType;
 	u8 prgRomSize; // in 16kB units
@@ -20,13 +22,22 @@ private:
 	u8* prgRom;
 	u8* chrRom;
 	Mapper* mapper;
-	char* filePath;
-	char* fileName;
+	const char* romPath;
+	const char* romName;
+private:
+	const char* getFileNameFromPath(const char* path);
+	void checkForSaveFolder();
 public:
-	Rom(FILE* romFile);
+	Rom(const char* filePath);
 	void printInfo();
 	Mapper* getMapper();
 	bool hasBattery();
-	Rom() {}
+	const char* getfileName();
+	void loadWorkRam();
+	void saveWorkRam();
+	Rom() : header{ 0 }, mapperType{ 0 }, prgRomSize{ 0 }, chrRomSize{ 0 },
+		prgRom{ nullptr }, chrRom{ nullptr }, mapper{ nullptr },
+		romPath{ nullptr }, romName{ nullptr }
+	{};
 };
 #endif

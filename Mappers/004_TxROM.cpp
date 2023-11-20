@@ -80,13 +80,13 @@ void M_004_TxROM::wrCPU(u16 where, u8 what) {
 	}
 }
 
-inline u8 M_004_TxROM::lowerPPURegs(u16 where)
+u8 M_004_TxROM::lowerPPURegs(u16 where)
 {
 	bool lowRegID = where & 0x800; // bit 11 tells which half of the quadrant we're in --> R1 else R0
 	return chrBankRegisters[lowRegID][where & 0x07FF];
 }
 
-inline u8 M_004_TxROM::higherPPURegs(u16 where)
+u8 M_004_TxROM::higherPPURegs(u16 where)
 {
 	u8 highRegID = (where >> 10) & 0x03;
 	return chrBankRegisters[2 + highRegID][where & 0x03FF];
@@ -94,6 +94,16 @@ inline u8 M_004_TxROM::higherPPURegs(u16 where)
 
 u8 M_004_TxROM::rdPPU(u16 where)
 {
+	static bool lastA12Value = false;
+	//if (1||is8x16SpriteMode) {
+	//	if ((where & 0x1000) && !lastA12Value) {
+	//		irqCounterTick();
+	//		//printf("hello");
+	//		lastA12Value = (where & 0x1000) != 0;
+	//	}
+	//	lastA12Value = (where & 0x1000) != 0;
+	//}
+	
 	if (!prgRomSize) {
 		return chrRam[where];
 	}

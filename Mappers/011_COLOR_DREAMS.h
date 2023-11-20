@@ -11,7 +11,7 @@ public:
 	u8 rdCPU(u16 where);
 	void wrCPU(u16 where, u8 what);
 	u8 rdPPU(u16 where);
-	void wrPPU(u16 where, u8 what);
+	void wrPPU(u16 where, u8 what) { (void)where; (void)what; };
 	M_011_COLOR_DREAMS() :Mapper(), currentPrgRom{ 0 }, currentChrRom{ 0 }
 	{};
 };
