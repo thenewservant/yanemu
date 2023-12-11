@@ -12,8 +12,6 @@ void Screen::initSDLScreen() {
 	
 	// Create SDL texture
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
-	//int pitch = SCREEN_WIDTH * SCREEN_HEIGHT * 4;
-	//SDL_LockTexture(texture, NULL, (void**)&pixels, &pitch);
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		exit(1);
@@ -39,14 +37,10 @@ u32* Screen::getPixels() {
 }
 
 void Screen::updateScreen() {
-	//SDL_UnlockTexture(texture);
 	SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
-	//int pitch = SCREEN_WIDTH * SCREEN_HEIGHT * 4;
-	//SDL_LockTexture(texture, NULL, (void**)&pixels, &pitch);
 }
-
 
 void Screen::checkPressKey(SDL_Event event) {
 	switch (event.key.keysym.sym) {

@@ -8,13 +8,15 @@
 #include <chrono>
 #include <sys/stat.h>
 
-#ifdef WIN32
+#ifdef _WIN32
 	#include <direct.h>
 	#define MKDIR(x) _mkdir(x)
 #else
 	#define MKDIR(x) mkdir(x, 0755)
 #endif
 
+#ifdef WINVER
+#endif
 typedef uint8_t u8;
 typedef uint16_t u16;
 typedef uint32_t u32;

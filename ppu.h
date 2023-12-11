@@ -97,7 +97,6 @@ private:
 	u8 frame;
 	u32* pixels;
 	Screen* scr;
-	Rom rom;
 	u8 oamADDR;
 	u8 OAM[256];
 	u8 secondaryOAM[SECONDARY_OAM_CAP];
@@ -116,7 +115,6 @@ private:
 	void rendererComputeSpritePixel(const u8& spriteOpaque, u32& finalPIX);
 	void rendererComputeBGPixel(u8  attributeSR[2], const u16& shift, const u8& bgOpaque, u32& finalPIX);
 	void pixelRenderer();
-	void sequencer();
 	void incPPUADDR();
 	u16 paletteMap(u16 where);
 	void wrVRAM(u8 what);
@@ -124,7 +122,7 @@ private:
 	void incFineY();
 	void incCoarseX();
 public:
-	PPU(u32* px, Screen* sc, Rom rom);
+	PPU(u32* px, Screen* sc, Rom* rom);
 	void tick();
 	void updateOam();
 	void writeOAM(u8 what);

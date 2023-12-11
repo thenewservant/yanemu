@@ -60,7 +60,6 @@ Rom::Rom(const char* filePath) :romPath{ nullptr }, romName{ nullptr } {
 }
 
 void Rom::checkForSaveFolder() { //check if the folder for battery saves exists, if not, create it
-	char* buf = (char*)malloc(104 * sizeof(char));
 	if (MKDIR(saveFolder) == 0) {
 		printf("Info: Battery save folder successfully created\n");
 	}
@@ -74,7 +73,6 @@ void Rom::printInfo() {
 	printf("PRG ROM size: %d (%d KB)\n", prgRomSize, prgRomSize * 16);
 	printf("Cartdrige %s battery-backed PRG RAM\n", header[6] & 2 ? "has" : "does not have");
 	printf("Nes 2.0 Format? %s\n", header[7] & 0x08 ? "Yes" : "No");
-	printf("Trainer %s\n", header[6] & 4 ? "present" : "absent");
 }
 
 Mapper* Rom::getMapper() {
@@ -97,12 +95,11 @@ const char* Rom::getFileNameFromPath(const char* path) {
 	}
 
 	char* fn2 = (char*)malloc(100 * sizeof(char));
-	fn2 = strcpy(fn2, fileName);
+	strcpy(fn2, fileName);
 	char* dot = strrchr(fn2, '.');
 	if (dot) {
 		*dot = '\0';
 	}
-
 	return fn2;
 }
 
@@ -112,10 +109,12 @@ const char* Rom::getfileName() {
 
 void Rom::loadWorkRam() {
 	if (header[6] & 2) {
-		char* buf = (char*)malloc(104 * sizeof(char));
+		char* buf = (char*)malloc(150 * sizeof(char));
 		if (buf) {
 			sprintf(buf, "%s/%s.7bs", saveFolder, romName);
-			FILE* batteryFile = fopen(buf, "rb");
+			
+			FILE* batteryFile = fopen(buf, "rb"); 
+			free(buf);
 			if (batteryFile != NULL) {
 				printf("Found battery file, loading... \n");
 				fread(mapper->getPrgRam(), 0x2000, 1, batteryFile);
@@ -128,9 +127,9 @@ void Rom::loadWorkRam() {
 void Rom::saveWorkRam() {
 	if (this->hasBattery() && mapper->getPrgRam()) {
 		printf("\nSaving Work Ram...\n");
-		char* buf = (char*)malloc(104 * sizeof(char));
+		char* buf = (char*)malloc(150 * sizeof(char));
 		if (buf) {
-			sprintf(buf, "%s/%s.7bs", saveFolder, romName);
+			sprintf(buf, "%s/%s", saveFolder, romName);
 			FILE* chrRamFile = fopen(buf, "wb");
 			free(buf);
 			if (!chrRamFile) {

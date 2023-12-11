@@ -38,7 +38,7 @@ u8 PPU::rdVRAM(u16 where) {
 	//The first four (actually two) bits of the address determine which area is being accessed
 	switch (where & 0x3000) {
 	case 0x0000:
-	case 0x1000:
+	case 0x1000: 
 		return mapper->rdPPU(where);
 	case 0x2000:
 		return mapper->rdNT(where);
@@ -302,10 +302,6 @@ void PPU::pixelRenderer() {
 	}
 }
 
-void PPU::sequencer() {
-	
-}
-
 void PPU::tick() {
 	float average = 0;
 	static std::chrono::steady_clock::time_point t0 = Time::now();
@@ -329,7 +325,7 @@ void PPU::tick() {
 		maySetVBlankFlag = true;
 		mayTriggerNMI = true;
 	}
-	//sequencer();
+
 	static bool canFinallyNMI = false;
 	static u8 nmiCyclesToWait = 0;
 	if (scanLine < 240) {
@@ -434,19 +430,19 @@ void PPU::tick() {
 	cycle++;
 }
 
-PPU::PPU(u32* px, Screen* sc, Rom rom) :
+PPU::PPU(u32* px, Screen* sc, Rom* rom) :
 	OAM{ 0 }, internalPPUreg(0), frame(0), cycle(0), scanLine(261),
 	isVBlank(false), scr(sc), pixels(px), secondaryOAM{ 0 }, scrollRegs{ 0 },
 	paletteMem{ 0 }, mayTriggerNMI{ true }, maySetVBlankFlag{ true }, oamADDR{ 0 }
 {
 	ram[0x2002] = 0b10000000;
-	this->mapper = rom.getMapper();
+	this->mapper = rom->getMapper();
 	printf("PPU Started.\n");
 }
 
-u8 PPU::readPPUSTATUS() {
+u8 PPU::readPPUSTATUS() { 
 	if ((scanLine == 241)) {
-		if (1 <= cycle && cycle <= 3) {
+		if (2 <= cycle && cycle <= 3) {// TODO -- improve timing 
 			maySetVBlankFlag = false;
 			mayTriggerNMI = false;
 		}
@@ -462,10 +458,11 @@ void PPU::writePPUCTRL(u8 what) { // 0x2000
 	mapper -> setSpriteMode(SP_MODE);
 	scrollRegs.t = ((what & 0x3) << 10) | (scrollRegs.t & 0x73FF);
 	if ((ram[0x2002] & 0x80) && (!(ram[0x2000] & 0x80)) && (what & 0x80)) {
-		if (!((scanLine == 261) && (cycle == 0))) {
+		if (!(((scanLine == 261) && (cycle == 0)) // TODO -- improve timing here as well
+			)//|| ((scanLine == 241) && (cycle <= 0)))  
+			) {
 			nmiPending = true;
 		}
-
 	}
 	ram[0x2000] = what;
 }

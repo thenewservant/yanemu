@@ -65,7 +65,7 @@ void specialCom() {
 		printf("%d: %2X - %d times\n", i + 1, mostUsed[i], comCount[mostUsed[i]]);
 	}
 	printf("PC: %4X\n", pc);
-	printf("The I Flag is %s\n", (sr & 0b00000100) >> 2 ? "SET" : "CLEAR");
+	printf("The I Flag is %s\n", (sr & 0b00000100)  ? "SET" : "CLEAR");
 	printf("Remaining audio samples: %d", (SDL_GetQueuedAudioSize(dev) / sizeof(float)));
 }
 
@@ -492,13 +492,15 @@ void _lsr(u16 where) {
 	u8 tmp = rd(where);
 	sr = sr & ~N_FLAG & ~C_FLAG | tmp & C_FLAG;
 	wr(where, tmp >> 1);
-	check_NZ(tmp >> 1);
+	sr &= NEG_NZ_FLAGS;
+	sr |= (((tmp>>1) == 0) << 1);
 }
 
 void _4AlsrC() {
 	sr = sr & ~N_FLAG & ~C_FLAG | ac & C_FLAG;
 	ac >>= 1;
-	check_NZ(ac);
+	sr &= NEG_NZ_FLAGS;
+	sr |= ((ac == 0) << 1);
 }
 void _46lsrZ() { _lsr(rd(pc)); pc++; }
 void _56lsrZ() { _lsr(zpgX()); pc++; }
@@ -888,11 +890,11 @@ void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, _03sloN, _04nopZ, _05oraZ, 
 						_08phpM, _09oraI, _0Aasl_, _0BancI, _0CnopA, _0DoraA, _0EaslA, _0FsloA,
 						_10bplR, _11oraN, _02jamM, _13sloN, _04nopZ, _15oraZ, _16aslZ, _17sloZ,
 						_18clcM, _19oraA, _EAnopM, _1BsloA, _1CnopA, _1DoraA, _1EaslA, _1FsloA,
-						_20jsrA, _21andN, _02jamM, _23rlaN, _24bitZ, _25andZ,
-						_26rolZ, _27rlaZ, _28plpM, _29andI, _2ArolC, _0BancI, _2CbitA, _2DandA,
-						_2ErolA, _2FrlaA, _30bmiR, _31andN, _02jamM, _33rlaN, _04nopZ, _35andZ,
-						_36rolZ, _37rlaZ, _38secM, _39andA, _EAnopM, _3BrlaA, _1CnopA, _3DandA,
-						_3ErolA, _3FrlaA, _40rtiM, _41eorN, _02jamM, _43sre, _04nopZ, _45eorZ, _46lsrZ,
+						_20jsrA, _21andN, _02jamM, _23rlaN, _24bitZ, _25andZ, _26rolZ, _27rlaZ,
+						_28plpM, _29andI, _2ArolC, _0BancI, _2CbitA, _2DandA, _2ErolA, _2FrlaA,
+						_30bmiR, _31andN, _02jamM, _33rlaN, _04nopZ, _35andZ, _36rolZ, _37rlaZ,
+						_38secM, _39andA, _EAnopM, _3BrlaA, _1CnopA, _3DandA, _3ErolA, _3FrlaA,
+						_40rtiM, _41eorN, _02jamM, _43sre, _04nopZ, _45eorZ, _46lsrZ,
 						_47sre, _48phaM, _49eorI, _4AlsrC, _4BalrI, _4CjmpA, _4DeorA, _4ElsrA,
 						_4Fsre, _50bvcR, _51eorN, _02jamM, _53sre, _04nopZ, _55eorZ, _56lsrZ,
 						_57sre, _58cliM, _59eorA, _EAnopM, _5Bsre, _1CnopA, _5DeorA, _5ElsrA,
@@ -918,9 +920,7 @@ void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, _03sloN, _04nopZ, _05oraZ, 
 						_F7iscZ, _F8sedM, _F9sbcA, _EAnopM, _FBiscA, _1CnopA, _FDsbcA, _FEincA, _FFiscA
 };
 
-Cpu::Cpu(u8* ram, u8* pr) {
-	mem = ram;
-	prog = pr;
+Cpu::Cpu() {
 	pc = (rd(0xFFFD) << 8) | rd(0xFFFC);
 }
 
@@ -932,25 +932,30 @@ void Cpu::afficher() {
 	}
 }
 
+Rom* rom;
+float silence[5000];
 int mainSYS(Screen* scr, const char* filePath) {
-	Rom rom(filePath);
-	rom.printInfo();
-	mapper = rom.getMapper();
-	scr->setRom(&rom);
-	Cpu f(ram, ram);
-	PPU p(scr->getPixels(), scr, rom);
-	
-	ppu = &p;
-	
+	rom = new Rom(filePath);
+	ppu = new PPU(scr->getPixels(), scr, rom);
+	rom->printInfo();
+	mapper = rom->getMapper();
+	scr->setRom(rom);
 	soundmain();
+	Cpu* f = new Cpu();
 	auto t0 = Time::now();
-
+	
 	switch (VIDEO_MODE) {
 	case NTSC:
 		printf("\nVideo: NTSC");
 		while (1) {
 			while (1||(SDL_GetQueuedAudioSize(dev) / sizeof(float)) < 1 * 4470) {
+				if ((SDL_GetQueuedAudioSize(dev) / sizeof(float)) < 1200) {
+					printf("\nAUDIO DEVICE IS STARVING!\n");
+					
+					SDL_QueueAudio(dev, silence, 1000 * sizeof(float));
+				}
 				for (int i = 0; i < 59561 * 1; i++) {
+					
 					nbcyc++;
 
 					ppu->tick(); ppu->tick(); ppu->tick();

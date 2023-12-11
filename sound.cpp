@@ -1,6 +1,4 @@
 #include "sound.h"
-#include "ScreenTools.h"
-#include <stdio.h>
 
 SDL_AudioDeviceID dev;
 

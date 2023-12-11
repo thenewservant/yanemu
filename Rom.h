@@ -3,6 +3,7 @@
 #define ROM_H
 
 #include "types.h"
+#include "Extensions.h"
 #include "Mappers/Mapper.h"
 #include "Mappers/000_NROM.h"
 #include "Mappers/001_SxROM.h"

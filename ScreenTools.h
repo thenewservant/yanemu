@@ -16,7 +16,7 @@ extern u32* pixels; // real screen
 
 class Screen {
 private:
-	//uint32_t* pixels;
+	char title[150];
 	Rom* rom;
 	SDL_Window* window;
 	SDL_Renderer* renderer;
@@ -40,15 +40,12 @@ public:
 	SDL_Window* getWindow();
 	void writePixel(u32 where, u32 what);
 	char* getFilePath();
-	void setRom(Rom* romPtr) {
-		this->rom = romPtr; 
-		char * tt = (char*)malloc(100 * sizeof(char));
-		strcpy(tt, "Yanemu - ");
-		strcat(tt, rom->getfileName());
-		SDL_SetWindowTitle(window, tt);
+	void setRom(Rom* romPtr){
+		this->rom = romPtr;
+		strcpy(title, "Yanemu - ");
+		strcat(title, rom->getfileName());
+		SDL_SetWindowTitle(window, title);
 	};
 };
-
-extern Screen scr;
 
 #endif

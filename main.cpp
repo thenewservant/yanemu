@@ -5,23 +5,18 @@
 
 u8 WindowScaleFactor = 4;
 
-
 int main(int argc, char* argv[]) {
-
+	
 #ifdef WIN32
 	SetProcessDPIAware();
 #endif
 	char* gamePath;
 	if (argc > 1) {
-		if (argc < 2) {
-			printf("\nnes ROM expected!");
-			exit(1);
-		}
 		gamePath = argv[1];
 	}
 	else {
 		//const char* gameFile = "blargg/spritesOK/08.double_height.nes";
-		const char* gameFile = "mmc3/smb2.nes";
+		const char* gameFile = "magicof.nes";
 		const char* gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
 		gamePath = (char*)malloc(100 * sizeof(char));
 		if (gamePath) {
@@ -32,7 +27,6 @@ int main(int argc, char* argv[]) {
 			printf("\nMemory allocation error!");
 			exit(1);
 		}
-
 	}
 
 	Screen scr(WindowScaleFactor);
@@ -40,7 +34,7 @@ int main(int argc, char* argv[]) {
 
 	u8 listn = scr.listener();
 	while (!(listn & 1)) {
-		SDL_Delay(1);
+		SDL_Delay(2);
 		listn = scr.listener();
 	}
 	printf("\nExiting...\n");

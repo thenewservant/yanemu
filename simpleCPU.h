@@ -1,14 +1,6 @@
 #pragma warning(disable:4996)
 #ifndef SIMPLE_CPU_H
 #define SIMPLE_CPU_H
-#include <stdint.h>
-#include <iostream>
-#include <cstdio>
-#include <cstdlib>
-//import chrono time libs
-#include <fstream>
-#include <chrono>
-#include <time.h>
 #include "types.h"
 #include "Mappers/Mapper.h"
 #ifdef _WIN32
@@ -32,9 +24,6 @@
 
 #define SR_RST 0b00100100 // IGNORED(_), B and INTERRUPT are set to 1
 
-#define VERTICAL 1
-#define HORIZONTAL 0 // mirroring type
-
 extern u8 ram[];
 
 enum VideoModes {
@@ -44,7 +33,7 @@ enum VideoModes {
 
 #define VIDEO_MODE NTSC
 
-static const uint8_t _6502InstBaseCycles[256] = {
+static const u8 _6502InstBaseCycles[256] = {
   7,6,2,8,3,3,5,5,3,2,2,2,4,4,6,6,
   2,5,2,8,4,4,6,6,2,4,2,7,4,4,7,7,
   6,6,2,8,3,3,5,5,4,2,2,2,4,4,6,6,
@@ -64,12 +53,8 @@ static const uint8_t _6502InstBaseCycles[256] = {
 };
 
 class Cpu {
-private:
-	u8* mem;
-	u8* prog;
-
 public:
-	Cpu(u8* ram, u8* pr);
+	Cpu();
 	void afficher();
 };
 
