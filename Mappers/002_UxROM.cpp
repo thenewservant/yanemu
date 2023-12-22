@@ -9,7 +9,6 @@ void M_002_UxROM::setPrgRom(u8* prgRom, u8 PRsize) {
 
 void M_002_UxROM::setChrRom(u8* chrRom, u8 CHRsize) {
 	chrRomSize = CHRsize;
-	currentChrRom = (u8*)calloc(0x2000, sizeof(u8));
 }
 
 u8 M_002_UxROM::rdCPU(u16 where) {
@@ -26,9 +25,9 @@ void M_002_UxROM::wrCPU(u16 where, u8 what) {
 }
 
 u8 M_002_UxROM::rdPPU(u16 where) {
-	return currentChrRom[where];
+	return chrRom[where];
 }
 
 void M_002_UxROM::wrPPU(u16 where, u8 what) {
-	currentChrRom[where] = what;
+	chrRom[where] = what;
 }

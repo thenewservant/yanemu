@@ -271,8 +271,8 @@ void PPU::pixelRenderer() {
 		patternSR[SR_MSB] <<= 1;
 		attributeSR[SR_LSB] <<= 1;
 		attributeSR[SR_MSB] <<= 1;
-		attributeSR[SR_LSB] |= (nextTilePaletteLatch[SR_LSB]);
-		attributeSR[SR_MSB] |= (nextTilePaletteLatch[SR_MSB]);
+		attributeSR[SR_LSB] |= (u8)(nextTilePaletteLatch[SR_LSB]);
+		attributeSR[SR_MSB] |= (u8)(nextTilePaletteLatch[SR_MSB]);
 	}
 
 	switch (cycle % 8) 
@@ -321,7 +321,7 @@ void PPU::tick() {
 
 	scanLine %= 262;
 	if ((scanLine == 0) && (cycle == 0)) {
-		t0 = Time::now();
+		//t0 = Time::now();
 		maySetVBlankFlag = true;
 		mayTriggerNMI = true;
 	}
@@ -367,9 +367,9 @@ void PPU::tick() {
 
 	else if (scanLine == 241) {
 		if (cycle == 0) {
-			auto t1 = Time::now();
-			fsec fs = t1 - t0;
-			long long millis = std::chrono::duration_cast<std::chrono::milliseconds>(fs).count();
+			//auto t1 = Time::now();
+			//fsec fs = t1 - t0;
+			//long long millis = std::chrono::duration_cast<std::chrono::milliseconds>(fs).count();
 			//printf("\nframe elapsed in: %.3fs", millis / 1000.0);
 		}
 		else if (cycle == 1) {

@@ -129,7 +129,7 @@ void Rom::saveWorkRam() {
 		printf("\nSaving Work Ram...\n");
 		char* buf = (char*)malloc(150 * sizeof(char));
 		if (buf) {
-			sprintf(buf, "%s/%s", saveFolder, romName);
+			sprintf(buf, "%s/%s.7bs", saveFolder, romName);
 			FILE* chrRamFile = fopen(buf, "wb");
 			free(buf);
 			if (!chrRamFile) {

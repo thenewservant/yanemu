@@ -1,9 +1,7 @@
 #pragma once
 #ifndef PPU_H
 #define PPU_H
-#include "types.h"
 #include "ScreenTools.h"
-#include "Rom.h"
 
 #define BG_RENDERING	 (ram[0x2001] & 0b00001000)
 #define SPRITE_RENDERING (ram[0x2001] & 0b00010000)

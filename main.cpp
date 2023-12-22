@@ -16,14 +16,15 @@ int main(int argc, char* argv[]) {
 	}
 	else {
 		//const char* gameFile = "blargg/spritesOK/08.double_height.nes";
-		const char* gameFile = "magicof.nes";
+		const char* gameFile = "uxrom/rambo.nes";
 		const char* gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
-		gamePath = (char*)malloc(100 * sizeof(char));
+		gamePath = (char*)malloc(strlen(gameDir) + strlen(gameFile) + 1);
 		if (gamePath) {
 			gamePath = strcpy(gamePath, gameDir);
 			gamePath = strcat(gamePath, gameFile);
 		}
 		else {
+			
 			printf("\nMemory allocation error!");
 			exit(1);
 		}
@@ -31,7 +32,6 @@ int main(int argc, char* argv[]) {
 
 	Screen scr(WindowScaleFactor);
 	std::thread tsys(mainSYS, &scr, gamePath);
-
 	u8 listn = scr.listener();
 	while (!(listn & 1)) {
 		SDL_Delay(2);

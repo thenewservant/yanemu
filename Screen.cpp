@@ -37,6 +37,7 @@ u32* Screen::getPixels() {
 }
 
 void Screen::updateScreen() {
+	SDL_RenderClear(renderer);//is it useful at all?
 	SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
@@ -68,7 +69,7 @@ void Screen::checkPressKey(SDL_Event event) {
 	case SDLK_d:
 		status |= 0b00000010;
 		break;
-	case SDLK_SPACE:
+	case SDLK_s:
 		status |= 0b00000100;
 		break;
 	case SDLK_i:
@@ -115,7 +116,7 @@ void Screen::checkRaiseKey( SDL_Event event) {
 	case SDLK_d:
 		status &= ~0b00000010;
 		break;
-	case SDLK_SPACE:
+	case SDLK_s:
 		status &= ~0b00000100;
 		break;
 	default:

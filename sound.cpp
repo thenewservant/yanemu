@@ -18,7 +18,6 @@ int soundmain() {
         fprintf(stderr, "SDL_OpenAudio error: %s\n", SDL_GetError());
         return -1;
     }
-    
     // Start the audio playback
     SDL_PauseAudioDevice(dev, 0);
     printf("\nAPU started.");

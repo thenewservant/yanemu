@@ -2,7 +2,7 @@
 #include "Mapper.h"
 class M_002_UxROM : public Mapper {
 protected:
-	u8* currentChrRom;
+	u8 chrRom[0x2000];
 	u8* switchablePrgBank;
 	u8* lastPrgBank;
 public:
@@ -13,6 +13,6 @@ public:
 	u8 rdPPU(u16 where);
 	void wrPPU(u16 where, u8 what);
 	M_002_UxROM():Mapper(),
-		currentChrRom{ 0 }, switchablePrgBank{ 0 }, lastPrgBank{ 0 }
+		chrRom{ 0 }, switchablePrgBank{ 0 }, lastPrgBank{ 0 }
 	{};
 };

@@ -2,8 +2,6 @@
 #ifndef SCREENTOOLS_H
 #define SCREENTOOLS_H
 #include <SDL.h>
-#include <cstdio>
-#include "types.h"
 #include "simpleCPU.h"
 #include "Rom.h"
 

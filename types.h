@@ -7,6 +7,7 @@
 #include <string.h>
 #include <chrono>
 #include <sys/stat.h>
+#include <stdexcept>
 
 #ifdef _WIN32
 	#include <direct.h>

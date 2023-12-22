@@ -14,7 +14,7 @@
 u8 ac, xr, yr, sr = SR_RST, sp = 0xFD;
 u16 pc;
 
-u8 ram[0x10000] = { 0 };
+u8 ram[0x6000] = { 0 };
 u32 cycles = 0;
 
 u8 latchCommandCtrl1 = 0;
@@ -103,8 +103,7 @@ u8 rd(u16 at) {
 	else if (at >= 0x2000 && at <= 0x3FFF) {
 		return rdRegisters(at & 0x2007);
 	}
-	switch (at) {
-	case 0x4016:
+	else if (at == 0x4016) {
 		if (latchCommandCtrl1) {
 			ram[0x4016] = ram[0x4016] & 0xFE | (keyLatchCtrl1) & 1;
 			keyLatchCtrl1 >>= 1;
@@ -114,10 +113,11 @@ u8 rd(u16 at) {
 		else {
 			return keys1 & 1;
 		}
-
-	case 0x4017:
+	}
+	else if (at == 0x4017) {
 		return 0;
-	default:
+	}
+	else {
 		return ram[at];
 	}
 }
@@ -343,7 +343,7 @@ void _D8cldM() { sr &= ~D_FLAG; }
 void _58cliM() { sr &= ~I_FLAG; }
 void _B8clvM() { sr &= ~V_FLAG; }
 
-void _cmp(u8 reg, u8 what) {
+__declspec(noinline) void _cmp(u8 reg, u8 what) {
 	u8 tmpN = reg - what;
 	sr = sr & ~N_FLAG & ~Z_FLAG & ~C_FLAG |
 		((reg == what) ? Z_FLAG : 0) |
