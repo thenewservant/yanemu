@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _007_AXROM_H_
+#define _007_AXROM_H_
 #include "Mapper.h"
 
 class M_007_AxROM : public Mapper {
@@ -18,3 +19,4 @@ public:
 		chrBanks = new u8 * [1];
 	};
 };
+#endif

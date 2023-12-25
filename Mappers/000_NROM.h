@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _000_NROM_H_
+#define _000_NROM_H_
 #include "Mapper.h"
 
 class M_000_NROM : public Mapper{
@@ -64,3 +65,4 @@ public:
 		prgBanks = new u8 * [2];
 	}
 };
+#endif

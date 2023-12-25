@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _001_SxROM_H_
+#define _001_SxROM_H_
 #include "Mapper.h"
 #include "../Rom.h"
 
@@ -49,3 +50,4 @@ public:
 		wRamEnable = true;
 	};
 };
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _MAPPER_H_
+#define _MAPPER_H_
 #include "../types.h"
 
 enum MirroringModes {
@@ -37,3 +38,4 @@ public:
 		chrRomSize{ 0 }, prgRomSize{ 0 }, prg{ nullptr },
 		prgBanks{ nullptr }, chrBanks{ nullptr }, mirror{ 0 }, nameTables{ 0 }, chr{ 0 } {};
 };
+#endif

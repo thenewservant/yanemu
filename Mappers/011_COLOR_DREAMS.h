@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _011_COLOR_DREAMS_H_
+#define _011_COLOR_DREAMS_H_
 #include "Mapper.h"
 
 class M_011_COLOR_DREAMS : public Mapper {
@@ -15,3 +16,4 @@ public:
 	M_011_COLOR_DREAMS() :Mapper(), currentPrgRom{ 0 }, currentChrRom{ 0 }
 	{};
 };
+#endif

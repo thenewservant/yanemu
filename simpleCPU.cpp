@@ -343,7 +343,7 @@ void _D8cldM() { sr &= ~D_FLAG; }
 void _58cliM() { sr &= ~I_FLAG; }
 void _B8clvM() { sr &= ~V_FLAG; }
 
-__declspec(noinline) void _cmp(u8 reg, u8 what) {
+void _cmp(u8 reg, u8 what) {
 	u8 tmpN = reg - what;
 	sr = sr & ~N_FLAG & ~Z_FLAG & ~C_FLAG |
 		((reg == what) ? Z_FLAG : 0) |

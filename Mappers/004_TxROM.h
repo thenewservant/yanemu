@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _004_TXROM_H_
+#define _004_TXROM_H_
 #include "Mapper.h"
 
 class M_004_TxROM : public Mapper {
@@ -51,3 +52,4 @@ public:
 		chrBankSwappedMode(false), prgRam{ 0 }, chrBankRegisters{ 0 },
 		prgBankRegisters{ 0 }, chr{ 0 }, secondLastBank{ 0 }, lastBank{ 0 }, is8x16SpriteMode{ false } {};
 };
+#endif

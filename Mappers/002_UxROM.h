@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _002_UxROM_H_
+#define _002_UxROM_H_
 #include "Mapper.h"
 class M_002_UxROM : public Mapper {
 protected:
@@ -16,3 +17,4 @@ public:
 		chrRom{ 0 }, switchablePrgBank{ 0 }, lastPrgBank{ 0 }
 	{};
 };
+#endif

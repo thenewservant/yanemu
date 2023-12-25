@@ -1,5 +1,7 @@
-#pragma once
-#define BATTERY_SAVE_FILE_EXTENSION ".7bs"
+#ifndef EXTENSIONS_H
+#define EXTENSIONS_H
 
+#define BATTERY_SAVE_FILE_EXTENSION ".7bs"
 #define DEFAULT_BATTERY_SAVE_FOLDER "BatterySaves"
 
+#endif

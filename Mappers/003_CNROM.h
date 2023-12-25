@@ -1,4 +1,5 @@
-#pragma once
+#ifndef _003_CNROM_H_
+#define _003_CNROM_H_
 #include "Mapper.h"
 
 class M_003_CNROM : public Mapper {
@@ -17,3 +18,4 @@ public:
 		chrBanks = new u8 * [1];
 	};
 };
+#endif

@@ -1,4 +1,5 @@
-#pragma once
+#ifndef APU_H
+#define APU_H
 #include "ScreenTools.h"
 
 #define APU_MODE_5_STEPS ((ram[0x4017] & 0x80) == 0x80)
@@ -50,3 +51,4 @@ enum ApuFrameSteps {
 
 void apuTick();
 void updateAPU(u16 where);
+#endif

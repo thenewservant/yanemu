@@ -1,4 +1,3 @@
-#pragma once
 #ifndef SCREENTOOLS_H
 #define SCREENTOOLS_H
 #include <SDL.h>

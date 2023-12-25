@@ -6,17 +6,17 @@
 u8 WindowScaleFactor = 4;
 
 int main(int argc, char* argv[]) {
-	
-#ifdef WIN32
-	SetProcessDPIAware();
-#endif
+	#ifdef WIN32
+		//SetProcessDPIAware();
+	#endif
+
 	char* gamePath;
 	if (argc > 1) {
 		gamePath = argv[1];
 	}
 	else {
 		//const char* gameFile = "blargg/spritesOK/08.double_height.nes";
-		const char* gameFile = "uxrom/rambo.nes";
+		const char* gameFile = "dk.nes";
 		const char* gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
 		gamePath = (char*)malloc(strlen(gameDir) + strlen(gameFile) + 1);
 		if (gamePath) {

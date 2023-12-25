@@ -119,11 +119,11 @@ void PPU::spriteProcessor(u8 spritesQty, bool sp0present) {
 			u8 px = 2 * M + L; // 2*M + L is the color index of the pixel (4 values possible)
 
 			if (px != 0) { // if the pixel is not transparent
-				spriteContainer[0][iX] = spAttr & 0x20; //Sprite priority
-				spriteContainer[1][iX] = px;
-				spriteContainer[2][iX] = spAttr & 0x03; //Palette ID
+				spriteContainer[iX] = spAttr & 0x20; //Sprite priority
+				spriteContainer[iX] |= px;
+				spriteContainer[iX] |= 4 * (spAttr & 0x03); //Palette ID
 				if ((spId == 0) && (sp0present) && (iX != 255)) {
-					spriteContainer[3][iX] = 1; // Sprite 0 hit indicator. (1 if pixel belongs to sprite 0, 0 otherwise)
+					spriteContainer[iX] |= 0x80; // Sprite 0 hit indicator. (1 if pixel belongs to sprite 0, 0 otherwise)
 				}
 			}
 		}
@@ -186,7 +186,7 @@ void PPU::spriteEvaluator() {
 		}
 	}
 	else if (cycle == 321) { // preparing the next scanline here. Computing the result of overlapping sprites.
-		memset(spriteContainer, 0, 4 * (SECONDARY_OAM_CAP * 4 + 8)); // empty the next scanline's buffer
+		memset(spriteContainer, 0, SECONDARY_OAM_CAP * 4); // empty the next scanline's buffer
 		spriteProcessor(foundSprites, sprite0present);
 	}
 }
@@ -195,9 +195,9 @@ void PPU::rendererComputeSpritePixel(const u8& spriteOpaque, u32& finalPIX)
 {
 	if (SPRITE_RENDERING && (LEFTMOST_SPRITES_SHOWN || (cycle > 8))) 
 	{
-		u16 spVramColor = 0x3F10 + 4 * (spriteContainer[2][cycle - 1]) + spriteOpaque;
-		u16 spTmp = (spVramColor & 3) ? spVramColor : 0x3F10;
-		finalPIX = colors[palette][paletteMem[paletteMap(spTmp)] & 0x3F];
+		u8 spVramColor = (spriteContainer[cycle - 1] & 0xC) + spriteOpaque;
+		u16 spTmp = (spVramColor & 3) ? (spVramColor|0x3F10) : 0x3F10;
+		finalPIX = colors[paletteMem[paletteMap(spTmp)]];
 	}
 }
 
@@ -205,10 +205,11 @@ void PPU::rendererComputeBGPixel(u8 attributeSR[2], const u16& shift, const u8& 
 {
 	if (BG_RENDERING && (LEFTMOST_BG_SHOWN || (cycle > 8))) 
 	{
-		u16 bgVramColor = 0x3F00 + 4 * (((attributeSR[SR_LSB] & shift) > 0) + 2 * ((attributeSR[SR_MSB] & shift) > 0)) //offset to right palette
-			+ bgOpaque; // actual pattern data
-		u16 bgTmp = (bgVramColor & 3) ? bgVramColor : 0x3F00; //default background color
-		finalPIX = colors[palette][paletteMem[paletteMap(bgTmp)] & 0x3F];// even if LEFTMOST_BG_SHOWN or BG_RENDERING is false, bgPIX will be at least color at 0x3F00 (default background color)
+		u8 bgVramColor = 4 * (((attributeSR[SR_LSB] & shift) > 0) 
+					   + 2 *  ((attributeSR[SR_MSB] & shift) > 0)) //offset to right palette
+					   +        bgOpaque; // actual pattern data
+		u16 bgTmp = (bgVramColor & 3) ? (bgVramColor | 0x3F00) : 0x3F00; //default background color
+		finalPIX = colors[paletteMem[paletteMap(bgTmp)]];// even if LEFTMOST_BG_SHOWN or BG_RENDERING is false, bgPIX will be at least color at 0x3F00 (default background color)
 	}
 }
 
@@ -216,7 +217,7 @@ void PPU::rendererComputeBGPixel(u8 attributeSR[2], const u16& shift, const u8& 
 // Buffers, in parallel, the next tile's pattern and attribute bytes.
 void PPU::pixelRenderer() {
 	static u16 attr; // attribute table byte for current element
-	static u16 tile; // Tile ID according to the correct nametable, to be used later
+	static u16 tile; // Tile ID according to the correct nametable
 	static u16 patternSR[2]; // this one does the job for initially two shift registers. fewer operations are needed to replicate the same circuitry.
 	static u8 attributeSR[2],//attribute for current tile
 			  preFetchSR[2]; //these ones are used to store pattern values for the next tile
@@ -232,11 +233,11 @@ void PPU::pixelRenderer() {
 	{
 		shift = 1 << (7 - scrollRegs.x);
 		bgOpaque = ((patternSR[SR_LSB] & (shift << 8)) > 0) + 2 * ((patternSR[SR_MSB] & (shift << 8)) > 0);
-		spriteOpaque = spriteContainer[1][cycle - 1];
+		spriteOpaque = spriteContainer[cycle - 1] & 0x3;
 		
 		bool pixelConflict = (bgOpaque && spriteOpaque);
 
-		bool priority = spriteContainer[0][cycle - 1]; // priority of 1 <=> true : sprite is BEHIND background, 0 <=> false : sprite is IN FRONT of background.
+		bool priority = (spriteContainer[cycle - 1] & 0x20 ) > 0; // priority is true : sprite is BEHIND background, false : sprite is IN FRONT of background.
 		if ((pixelConflict && priority) || !(spriteOpaque && SPRITE_RENDERING)){
 			rendererComputeBGPixel(attributeSR, shift, bgOpaque, finalPIX);
 		}
@@ -244,15 +245,15 @@ void PPU::pixelRenderer() {
 			rendererComputeSpritePixel(spriteOpaque, finalPIX);
 		}
 
-		if (spriteContainer[3][cycle - 1] && pixelConflict && BOTH_RENDERING) { //sprite 0 hit detection
-			if ((((cycle - 1) >= 8) || LEFTMOST_BOTH_SHOWN)) {
+		bool sprite0Present = (spriteContainer[cycle - 1] & 0x80) != 0;
+		if ( sprite0Present && pixelConflict && BOTH_RENDERING) { //sprite 0 hit detection
+			if (((cycle - 1) >= 8) || LEFTMOST_BOTH_SHOWN) {
 				ram[0x2002] |= 0b01000000;
 			}
 		}
 
 		switch (VIDEO_MODE) {
 		case NTSC:
-			
 			
 			if ((scanLine > 7) && (scanLine < 232)) {
 				pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] = (!(ram[0x2001] & 0b00000001)) ? finalPIX : 0xFFFFFF00; // greyscale characterisation (white here for mere testing)
@@ -304,7 +305,7 @@ void PPU::pixelRenderer() {
 
 void PPU::tick() {
 	float average = 0;
-	static std::chrono::steady_clock::time_point t0 = Time::now();
+	//static std::chrono::steady_clock::time_point t0 = Time::now();
 	if (cycle / 341) {
 		scanLine++;
 		cycle = 0;
@@ -346,7 +347,7 @@ void PPU::tick() {
 		}
 		else {
 			if ((V >= 0x3F00) && (cycle > 0) && (cycle < 257) && (scanLine > 7) && (scanLine < 232)) {
-				pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] = colors[1][rdVRAM(V) & 0x3F];
+				pixels[(scanLine - 8) * SCREEN_WIDTH + cycle - 1] = colors[rdVRAM(V)];
 			}
 		}
 
@@ -419,7 +420,7 @@ void PPU::tick() {
 
 		if (cycle == 1) {
 			maySetVBlankFlag = true;
-			memset(spriteContainer, 0, 4 * (SECONDARY_OAM_CAP * 4 + 8)); // empty the next scanline's sprite buffer
+			memset(spriteContainer, 0, (SECONDARY_OAM_CAP * 4 + 8)); // empty the next scanline's sprite buffer
 			ram[0x2002] &= ~0b11100000; // clear sprite overflow, sprite 0 hit, and vblank flags all at once
 		}
 
@@ -455,7 +456,7 @@ u8 PPU::readPPUSTATUS() {
 }
 
 void PPU::writePPUCTRL(u8 what) { // 0x2000
-	mapper -> setSpriteMode(SP_MODE);
+	//mapper -> setSpriteMode(SP_MODE);
 	scrollRegs.t = ((what & 0x3) << 10) | (scrollRegs.t & 0x73FF);
 	if ((ram[0x2002] & 0x80) && (!(ram[0x2000] & 0x80)) && (what & 0x80)) {
 		if (!(((scanLine == 261) && (cycle == 0)) // TODO -- improve timing here as well
