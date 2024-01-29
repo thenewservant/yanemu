@@ -4,7 +4,20 @@ Yet Another Nes EMUlator..
 ## What is it ?
 
 This is a NES emulator written in C++, with a pixel-based rendering strategy, coming with support for different [MMCs and Mappers](#mmcs-and-cartridge-support).
-<br>Made with SDL2 and wxWidgets.
+<br>Made with SDL2 and wxWidgets. _This software is still in early alpha_.
+
+## How do I use it ?
+
+Since there are no GUI yet, just run 
+`yanemu.exe <romFile>`
+
+### Bindings:
+
+A      : F\
+B      : D\
+Select : S\
+Start  : Return\
+D-pad  : Arrows
 
 ## How does it look ?
 Here is a demo of the emulator running some games.
@@ -26,7 +39,7 @@ Currently supports a few [_Mappers_](https://en.wikipedia.org/wiki/Memory_manage
  - **[SxROM](https://nescartdb.com/search/advanced?ines=1)** (1): *Metroid*, *The Legend of Zelda*, *Tetris*, *Teenage Mutant Ninja Turtles*, *Journey to Silius*... 
  - **[UxROM](https://nescartdb.com/search/advanced?ines=2)** (2): *DuckTales*, *Megaman*, *Castlevania*, *The 3-D Battles of WorldRunner*, *星霊狩り*...
  - **[CNROM](https://nescartdb.com/search/advanced?ines=3)** (3): *Slalom*, *The Legend of Kage*, *Destination Earthstar*...
- - **[TxROM](https://nescartdb.com/search/advanced?ines=4)** (4) (Partial support): *Super Mario Bros.* (2 and 3), *Kirby's Adventure*, *Startropics*, *Gremlins 2*...
+ - **[TxROM](https://nescartdb.com/search/advanced?ines=4)** (4) (Unstable): *Super Mario Bros.* (2 and 3), *Kirby's Adventure*, *Startropics*, *Gremlins 2*...
  - **[AxROM](https://nescartdb.com/search/advanced?ines=7)** (7): *Battletoads*, *Solstice*...
  - **[Color Dreams](https://nescartdb.com/search/advanced?ines=11)** (11): *Silent Assault*... ~~You shouldn't play these games~~
 
