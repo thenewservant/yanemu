@@ -1,13 +1,14 @@
+#include "types.h"
 #include "ppu.h"
 #include "simpleCPU.h"
 #include "ScreenTools.h"
 #include <thread>
 
-u8 WindowScaleFactor = 4;
+u8 WindowScaleFactor = 3;
 
 int main(int argc, char* argv[]) {
 	#ifdef WIN32
-		//SetProcessDPIAware();
+		SetProcessDPIAware();
 	#endif
 
 	char* gamePath;
@@ -15,19 +16,8 @@ int main(int argc, char* argv[]) {
 		gamePath = argv[1];
 	}
 	else {
-		//const char* gameFile = "blargg/spritesOK/08.double_height.nes";
-		const char* gameFile = "dk.nes";
-		const char* gameDir = "C:\\Users\\ppd49\\3D Objects\\C++\\yanemu\\tests\\";
-		gamePath = (char*)malloc(strlen(gameDir) + strlen(gameFile) + 1);
-		if (gamePath) {
-			gamePath = strcpy(gamePath, gameDir);
-			gamePath = strcat(gamePath, gameFile);
-		}
-		else {
-			
-			printf("\nMemory allocation error!");
-			exit(1);
-		}
+		printf("No game path specified\n");
+		return 1;
 	}
 
 	Screen scr(WindowScaleFactor);

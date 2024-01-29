@@ -66,7 +66,8 @@ void specialCom() {
 	}
 	printf("PC: %4X\n", pc);
 	printf("The I Flag is %s\n", (sr & 0b00000100)  ? "SET" : "CLEAR");
-	printf("Remaining audio samples: %d", (SDL_GetQueuedAudioSize(dev) / sizeof(float)));
+	printf("Remaining audio samples: %d\n", (SDL_GetQueuedAudioSize(dev) / sizeof(float)));
+	
 }
 
 void pressKey(u16 pressed) {
@@ -232,7 +233,7 @@ void check_NZ(u8 obj) {
 
 void check_CV(u8 what, u16 aluTmp) {
 	sr &= NEG_CV_FLAGS;
-	sr |= aluTmp & 0xFF00 ? C_FLAG : 0; // C applied if aluTmp > 0xff
+	sr |= aluTmp & 0xFF00 ? C_FLAG : 0; // C applied if aluTmp > 0xff00
 	sr |= V_FLAG & (((ac ^ aluTmp) & (what ^ aluTmp)) >> 1);
 }
 
@@ -441,7 +442,9 @@ void _FEincA() {
 
 void _E8inxM() { check_NZ(++xr); }
 void _C8inyM() { check_NZ(++yr); }
-void _4CjmpA() { pc = rd(pc) | (rd(pc + 1) << 8); }
+void _4CjmpA() {
+	pc = rd(pc) | (rd(pc + 1) << 8); 
+}
 
 void _6CjmpN() {
 	u16 pcTmp = rd(pc) | (rd(pc + 1) << 8);
@@ -865,7 +868,6 @@ void _43sre() { _sre(indX()); pc += 1; }
 void _53sre() { _sre(indY()); pc += 1; }
 
 void _EAnopM() {}
-void _80nopI() { pc++; }
 void _04nopZ() { pc++; }
 void _0CnopA() { pc += 2; }
 void _1CnopA() { absArg(xr); pc += 2; }
@@ -902,19 +904,19 @@ void (*opCodePtr[])() = { _00brk_, _01oraN, _02jamM, _03sloN, _04nopZ, _05oraZ, 
 						_67rraZ, _68plaM, _69adcI, _6ArorC, _6BarrM, _6CjmpN, _6DadcA, _6ErorA,
 						_6FrraA, _70bvsR, _71adcN, _02jamM, _73rraN, _04nopZ, _75adcZ, _76rorZ,
 						_77rraZ, _78seiM, _79adcA, _EAnopM, _7BrraA, _1CnopA, _7DadcA, _7ErorA,
-						_7FrraA, _80nopI, _81staZ, _80nopI, _83saxN, _84styZ, _85staZ, _86stxZ,
-						_87saxZ, _88deyM, _80nopI, _8AtxaM, _8BaneM, _8CstyA, _8DstaA, _8EstxA,
+						_7FrraA, _04nopZ, _81staZ, _04nopZ, _83saxN, _84styZ, _85staZ, _86stxZ,
+						_87saxZ, _88deyM, _04nopZ, _8AtxaM, _8BaneM, _8CstyA, _8DstaA, _8EstxA,
 						_8FsaxA, _90bccR, _91staZ, _02jamM, _93shaN, _94styZ, _95staZ, _96stxZ,
 						_97saxZ, _98tyaM, _99staA, _9AtxsM, _9BtasA, _9CshyA, _9DstaA, _9EshxA,
 						_9FshaA, _A0ldyI, _A1ldaN, _A2ldxI, _A3laxN, _A4ldyZ, _A5ldaZ, _A6ldxZ,
 						_A7laxZ, _A8tayM, _A9ldaI, _AAtaxM, _ABlxaI, _ACldyA, _ADldaA, _AEldxA,
 						_AFlaxA, _B0bcsR, _B1ldaN, _02jamM, _B3laxN, _B4ldyZ, _B5ldaZ, _B6ldxZ,
 						_B7laxZ, _B8clvM, _B9ldaA, _BAtsxM, _BBlasA, _BCldyA, _BDldaA, _BEldxA,
-						_BFlaxA, _C0cpyI, _C1cmpN, _80nopI, _C3dcpN, _C4cpyZ, _C5cmpZ, _C6decZ,
+						_BFlaxA, _C0cpyI, _C1cmpN, _04nopZ, _C3dcpN, _C4cpyZ, _C5cmpZ, _C6decZ,
 						_C7dcpZ, _C8inyM, _C9cmpI, _CAdexM, _CBsbxI, _CCcpyA, _CDcmpA, _CEdecA,
 						_CFdcpA, _D0bneR, _D1cmpN, _02jamM, _D3dcpN, _04nopZ, _D5cmpZ, _D6decZ,
 						_D7dcpZ, _D8cldM, _D9cmpA, _EAnopM, _DBdcpA, _1CnopA, _DDcmpA, _DEdecA,
-						_DFdcpA, _E0cpxI, _E1sbcN, _80nopI, _E3iscN, _E4cpxZ, _E5sbcZ, _E6incZ,
+						_DFdcpA, _E0cpxI, _E1sbcN, _04nopZ, _E3iscN, _E4cpxZ, _E5sbcZ, _E6incZ,
 						_E7iscZ, _E8inxM, _E9sbcI, _EAnopM, _E9sbcI, _ECcpxA, _EDsbcA, _EEincA,
 						_EFiscA, _F0beqR, _F1sbcN, _02jamM, _F3iscN, _04nopZ, _F5sbcZ, _F6incZ,
 						_F7iscZ, _F8sedM, _F9sbcA, _EAnopM, _FBiscA, _1CnopA, _FDsbcA, _FEincA, _FFiscA

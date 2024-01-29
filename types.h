@@ -10,6 +10,7 @@
 
 #ifdef _WIN32
 	#include <direct.h>
+	#include <windows.h>
 	#define MKDIR(x) _mkdir(x)
 #else
 	#define MKDIR(x) mkdir(x, 0755)
