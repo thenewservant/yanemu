@@ -8,8 +8,8 @@ This is a NES emulator written in C++, with a pixel-based rendering strategy, co
 
 ## How do I use it ?
 
-Since there are no GUI yet, just run 
-`yanemu.exe <romFile>`
+Since there is no GUI yet, just run \
+`yanemu.exe <romFile>` from a terminal.
 
 ### Bindings:
 
