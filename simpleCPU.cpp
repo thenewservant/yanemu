@@ -233,7 +233,7 @@ void check_NZ(u8 obj) {
 
 void check_CV(u8 what, u16 aluTmp) {
 	sr &= NEG_CV_FLAGS;
-	sr |= aluTmp & 0xFF00 ? C_FLAG : 0; // C applied if aluTmp > 0xff00
+	sr |= aluTmp & 0xFF00 ? C_FLAG : 0; // C applied if aluTmp > 0x00ff
 	sr |= V_FLAG & (((ac ^ aluTmp) & (what ^ aluTmp)) >> 1);
 }
 

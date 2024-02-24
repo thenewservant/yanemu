@@ -16,7 +16,7 @@ int main(int argc, char* argv[]) {
 		gamePath = argv[1];
 	}
 	else {
-		printf("No game path specified\n");
+		printf("Usage: yanemu.exe <rom>\n");
 		return 1;
 	}
 

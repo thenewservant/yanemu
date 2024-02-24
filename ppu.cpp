@@ -443,7 +443,7 @@ PPU::PPU(u32* px, Screen* sc, Rom* rom) :
 
 u8 PPU::readPPUSTATUS() { 
 	if ((scanLine == 241)) {
-		if (2 <= cycle && cycle <= 3) {// TODO -- improve timing 
+		if (1 <= cycle && cycle <= 3) {// TODO -- improve timing 
 			maySetVBlankFlag = false;
 			mayTriggerNMI = false;
 		}
