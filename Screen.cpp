@@ -1,6 +1,7 @@
 #include "ScreenTools.h"
-
+#include <mutex>
 u32 *pixels = (u32*)calloc(SCREEN_WIDTH * SCREEN_HEIGHT, sizeof(u32));
+std::mutex screenMutex;
 
 void Screen::initSDLScreen() {
 	screenW = SCREEN_WIDTH * ScreenScaleFactor;
@@ -8,14 +9,35 @@ void Screen::initSDLScreen() {
 	window = SDL_CreateWindow("", SDL_WINDOWPOS_UNDEFINED, SDL_WINDOWPOS_UNDEFINED, screenW, screenH, SDL_WINDOW_SHOWN | 0 * SDL_WINDOW_RESIZABLE);
 	
 	//SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN_DESKTOP);
+
 	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
-	
 	// Create SDL texture
 	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
 	if (SDL_Init(SDL_INIT_VIDEO | SDL_INIT_AUDIO) < 0) {
 		printf("SDL could not initialize! SDL_Error: %s\n", SDL_GetError());
 		exit(1);
 	}
+}
+
+void Screen::toggleFullScreen() {
+	screenMutex.lock();
+
+	if (SDL_GetWindowFlags(window) & SDL_WINDOW_FULLSCREEN) {
+		SDL_SetWindowFullscreen(window, 0);
+	}
+	else {
+		SDL_SetWindowFullscreen(window, SDL_WINDOW_FULLSCREEN);
+	}
+	SDL_DestroyTexture(texture);
+	SDL_DestroyRenderer(renderer);
+	renderer = SDL_CreateRenderer(window, -1, SDL_RENDERER_ACCELERATED | SDL_RENDERER_PRESENTVSYNC);
+	texture = SDL_CreateTexture(renderer, SDL_PIXELFORMAT_RGBX8888, SDL_TEXTUREACCESS_STREAMING, SCREEN_WIDTH, SCREEN_HEIGHT);
+
+	screenMutex.unlock();
+}
+
+void Screen::setCpuThread(std::thread* cpuThreadPtr) {
+	cpuThread = cpuThreadPtr;
 }
 
 void Screen::endSDLApplication() {
@@ -36,11 +58,13 @@ u32* Screen::getPixels() {
 	return pixels;
 }
 
-void Screen::updateScreen() {
+void Screen::updateScreen() { // called by the cpu thread
+	screenMutex.lock();
 	SDL_RenderClear(renderer);//is it useful at all?
 	SDL_UpdateTexture(texture, NULL, pixels, SCREEN_WIDTH * sizeof(Uint32));
 	SDL_RenderCopy(renderer, texture, NULL, NULL);
 	SDL_RenderPresent(renderer);
+	screenMutex.unlock();
 }
 
 void Screen::checkPressKey(SDL_Event event) {
@@ -78,11 +102,11 @@ void Screen::checkPressKey(SDL_Event event) {
 	case SDLK_m:
 		_nmi();
 		break;
-	case SDLK_q:
-		needFullScreenToggle = true;
-		break;
 	case SDLK_r:
 		_rst();
+		break;
+	case SDLK_u:
+		toggleFullScreen();
 		break;
 	default:
 		break;
@@ -128,6 +152,10 @@ u8 Screen::listener() {
 
 	while (SDL_PollEvent(&keyEvent)) {
 		switch (keyEvent.type) {
+		case SDL_QUIT:
+			printf("SDL QUIT");
+			return 1;
+			break;
 		case SDL_KEYDOWN:
 			checkPressKey(keyEvent);
 			pressKey(status);

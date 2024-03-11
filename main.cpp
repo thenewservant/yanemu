@@ -22,6 +22,7 @@ int main(int argc, char* argv[]) {
 
 	Screen scr(WindowScaleFactor);
 	std::thread tsys(mainSYS, &scr, gamePath);
+	scr.setCpuThread(&tsys);
 	u8 listn = scr.listener();
 	while (!(listn & 1)) {
 		SDL_Delay(2);

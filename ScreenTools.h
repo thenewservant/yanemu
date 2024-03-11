@@ -3,6 +3,7 @@
 #include <SDL.h>
 #include "simpleCPU.h"
 #include "Rom.h"
+#include <thread>
 
 #define SCREEN_WIDTH 256
 #define SCREEN_HEIGHT 224
@@ -13,6 +14,7 @@ extern u32* pixels; // real screen
 
 class Screen {
 private:
+	std::thread* cpuThread;
 	char title[150];
 	Rom* rom;
 	SDL_Window* window;
@@ -20,13 +22,14 @@ private:
 	SDL_Texture* texture;
 	u8 ScreenScaleFactor;
 	u16 status;
-	bool needFullScreenToggle = false;
 	SDL_Event keyEvent;
 	u16 screenW, screenH;
 private:
 	void initSDLScreen();
+	void toggleFullScreen();
 	char* newFilePath;
 public:
+	void setCpuThread(std::thread* cpuThreadPtr);
 	Screen(u8 scaleFact);
 	u32* getPixels();
 	void updateScreen();

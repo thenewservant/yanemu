@@ -1,5 +1,4 @@
 #include "003_CNROM.h"
-#include "000_NROM.h"
 
 void M_003_CNROM::setPrgRom(u8* prgRom, u8 PRsize) {
 	prgBanks[0] = prgRom;
