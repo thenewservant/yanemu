@@ -9,15 +9,17 @@ This is a NES emulator written in C++, with a pixel-based rendering strategy, co
 ## How do I use it ?
 
 Since there is no GUI yet, just run \
-`yanemu.exe <romFile>` from a terminal.
-
+`yanemu.exe <romFile>` from a terminal.\
+*Note:* Because rendering is based on V-Sync, you will need to set your display's refresh rate to **60 Hz**.
 ### Bindings:
 
 A      : F\
 B      : D\
 Select : S\
 Start  : Return\
-D-pad  : Arrows
+D-pad  : Arrows\
+R: Reset\
+U: Toggle Fullscreen
 
 ## How does it look ?
 Here is a demo of the emulator running some games.
